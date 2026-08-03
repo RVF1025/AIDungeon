@@ -23,14 +23,13 @@ namespace AIDungeon.Game
 
         private TMP_FontAsset LoadKoreanFont()
         {
-            var src = Resources.Load<Font>("Fonts/NanumGothic-Regular");
-            if (src == null)
-            {
-                Debug.LogWarning("[DirectorHud] 한글 폰트를 못 찾음(Resources/Fonts/NanumGothic-Regular).");
-                return null;
-            }
-            // 동적 아틀라스: 쓰는 글리프를 그때그때 구움 → WebGL에서 임의 한글 대사 렌더 가능.
-            return TMP_FontAsset.CreateFontAsset(src);
+            // 에디터에서 미리 구운 정적 아틀라스를 로드(런타임 래스터화 없음 → WebGL 안전).
+            // 없으면 TMP 기본 폰트로 진행(한글 미표시, 크래시는 안 남).
+            var baked = Resources.Load<TMP_FontAsset>("Fonts/NanumKR SDF");
+            if (baked == null)
+                Debug.LogWarning("[DirectorHud] 'Resources/Fonts/NanumKR SDF' 폰트 에셋이 없습니다. " +
+                    "Font Asset Creator로 NanumGothic 정적 아틀라스를 구워 저장하세요.");
+            return baked;
         }
 
         private void BuildUI()
