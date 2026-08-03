@@ -19,8 +19,8 @@ namespace AIDungeon.Director
     public class GeminiDirectorClient : MonoBehaviour
     {
         [Header("프록시 설정")]
-        [Tooltip("Cloudflare Worker 주소. 예: https://ai-dungeon-proxy.<계정>.workers.dev")]
-        public string proxyUrl = "https://REPLACE-ME.workers.dev";
+        [Tooltip("Vercel 프록시 엔드포인트. 프로덕션 고정 주소 사용.")]
+        public string proxyUrl = "https://ai-dungeon-nine.vercel.app/api/gemini";
 
         [Tooltip("비우면 Worker 기본 모델(gemini-flash-lite-latest) 사용")]
         public string modelOverride = "";
