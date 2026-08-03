@@ -31,8 +31,10 @@ namespace AIDungeon.Game
 
             var client = gameObject.AddComponent<GeminiDirectorClient>();
 
+            var hud = new GameObject("DirectorHud").AddComponent<DirectorHud>();
+
             var room = gameObject.AddComponent<RoomManager>();
-            room.Begin(spawner, client, logger, playerHealth);
+            room.Begin(spawner, client, logger, playerHealth, hud);
         }
 
         private void SetupCamera(out Camera cam)
