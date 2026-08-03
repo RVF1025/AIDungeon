@@ -25,9 +25,9 @@ namespace AIDungeon.Game
         {
             // 에디터에서 미리 구운 정적 아틀라스를 로드(런타임 래스터화 없음 → WebGL 안전).
             // 없으면 TMP 기본 폰트로 진행(한글 미표시, 크래시는 안 남).
-            var baked = Resources.Load<TMP_FontAsset>("Fonts/NanumKR SDF");
+            var baked = Resources.Load<TMP_FontAsset>("Fonts/NanumKR");
             if (baked == null)
-                Debug.LogWarning("[DirectorHud] 'Resources/Fonts/NanumKR SDF' 폰트 에셋이 없습니다. " +
+                Debug.LogWarning("[DirectorHud] 'Resources/Fonts/NanumKR' 폰트 에셋이 없습니다. " +
                     "Font Asset Creator로 NanumGothic 정적 아틀라스를 구워 저장하세요.");
             return baked;
         }
