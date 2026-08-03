@@ -45,6 +45,11 @@ namespace AIDungeon.Game
                 Destroy(gameObject);
                 return;
             }
+            // 벽/기둥에 막힘 (엄폐물)
+            foreach (var h in hits)
+            {
+                if (h.GetComponentInParent<Solid>() != null) { Destroy(gameObject); return; }
+            }
 
             _life -= Time.deltaTime;
             if (_life <= 0f) Destroy(gameObject);

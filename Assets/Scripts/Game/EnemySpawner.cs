@@ -23,6 +23,13 @@ namespace AIDungeon.Game
             _playerHealth = playerHealth;
         }
 
+        /// <summary>현재 층 방의 범위로 스폰 영역 갱신.</summary>
+        public void Configure(Vector2 center, Vector2 half)
+        {
+            roomCenter = center;
+            roomHalf = half;
+        }
+
         public void SpawnWave(DirectorDecision d, int count)
         {
             var (wMelee, wRanged, wTank) = Weights(d.composition);

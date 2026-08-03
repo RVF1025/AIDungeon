@@ -10,12 +10,9 @@ namespace AIDungeon.Game
     /// </summary>
     public class GameBootstrap : MonoBehaviour
     {
-        public Vector2 roomHalf = new Vector2(11f, 7f);
-
         private void Start()
         {
             SetupCamera(out var cam);
-            BuildRoom();
             var player = BuildPlayer(out var playerHealth);
 
             var follow = cam.gameObject.AddComponent<CameraFollow>();
@@ -25,9 +22,7 @@ namespace AIDungeon.Game
             logger.player = playerHealth;
 
             var spawner = gameObject.AddComponent<EnemySpawner>();
-            spawner.roomCenter = Vector2.zero;
-            spawner.roomHalf = roomHalf;
-            spawner.Setup(player.transform, playerHealth);
+            spawner.Setup(player.transform, playerHealth); // 방 범위는 RoomManager가 층마다 Configure
 
             var client = gameObject.AddComponent<GeminiDirectorClient>();
 
@@ -50,36 +45,6 @@ namespace AIDungeon.Game
             cam.orthographicSize = 8f;
             cam.transform.position = new Vector3(0, 0, -10);
             cam.backgroundColor = new Color(0.06f, 0.06f, 0.09f);
-        }
-
-        private void BuildRoom()
-        {
-            // 바닥
-            var floor = new GameObject("Floor");
-            var sr = floor.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square();
-            sr.color = new Color(0.13f, 0.13f, 0.18f);
-            sr.sortingOrder = -10;
-            floor.transform.localScale = new Vector3(roomHalf.x * 2f, roomHalf.y * 2f, 1f);
-
-            // 벽 4개 (정적 콜라이더)
-            float t = 1f;
-            Wall(new Vector2(0, roomHalf.y + t / 2f), new Vector2(roomHalf.x * 2f + t * 2f, t));
-            Wall(new Vector2(0, -roomHalf.y - t / 2f), new Vector2(roomHalf.x * 2f + t * 2f, t));
-            Wall(new Vector2(roomHalf.x + t / 2f, 0), new Vector2(t, roomHalf.y * 2f));
-            Wall(new Vector2(-roomHalf.x - t / 2f, 0), new Vector2(t, roomHalf.y * 2f));
-        }
-
-        private void Wall(Vector2 center, Vector2 size)
-        {
-            var go = new GameObject("Wall");
-            go.transform.position = center;
-            go.transform.localScale = new Vector3(size.x, size.y, 1f);
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square();
-            sr.color = new Color(0.25f, 0.25f, 0.32f);
-            sr.sortingOrder = 0;
-            go.AddComponent<BoxCollider2D>(); // localScale에 맞춰 1x1 박스가 늘어남
         }
 
         private GameObject BuildPlayer(out Health health)

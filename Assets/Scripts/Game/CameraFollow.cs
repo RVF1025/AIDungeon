@@ -18,6 +18,15 @@ namespace AIDungeon.Game
         public void AddShake(float a) => _shake = Mathf.Max(_shake, a);
         public static void Shake(float a) { if (Instance != null) Instance.AddShake(a); }
 
+        /// <summary>타깃 위치로 즉시 이동(방 전환 텔레포트 시 카메라가 날아가지 않게).</summary>
+        public void Snap()
+        {
+            if (target == null) return;
+            var p = target.position;
+            p.z = transform.position.z;
+            transform.position = p;
+        }
+
         private void LateUpdate()
         {
             if (target == null) return;

@@ -5,8 +5,9 @@ using AIDungeon.Director;
 namespace AIDungeon.Game
 {
     /// <summary>
-    /// 층 루프(무한): 웨이브 스폰 → 클리어 대기 → 프로파일 수집 → AI Director 호출 →
-    /// 그 판단대로 다음 층 스폰. 플레이어 사망 시 종료. 이 한 바퀴가 프로젝트의 핵심 루프.
+    /// 층 루프(무한): 매 층 새 위치에 방 생성(topology 반영) → 플레이어 이동 → 웨이브 스폰 →
+    /// 클리어 대기 → 프로파일 수집 → AI Director 호출 → 그 판단이 다음 층 방+적을 설계.
+    /// 플레이어 사망 시 종료.
     /// </summary>
     public class RoomManager : MonoBehaviour
     {
@@ -14,17 +15,20 @@ namespace AIDungeon.Game
         private GeminiDirectorClient _client;
         private BehaviorLogger _logger;
         private Health _playerHealth;
+        private Rigidbody2D _playerRb;
         private DirectorHud _hud;
 
         private int _floor = 1;
         private string _phase = "";
         private bool _gameOver;
+        private Room _room;
 
         public void Begin(EnemySpawner spawner, GeminiDirectorClient client,
                           BehaviorLogger logger, Health playerHealth, DirectorHud hud)
         {
             _spawner = spawner; _client = client; _logger = logger;
             _playerHealth = playerHealth; _hud = hud;
+            _playerRb = playerHealth.GetComponent<Rigidbody2D>();
             StartCoroutine(RunGame());
         }
 
@@ -46,6 +50,13 @@ namespace AIDungeon.Game
 
             while (true) // 무한 — 사망 시에만 종료
             {
+                // 이 층의 방을 새 위치에 생성(topology 반영) → 플레이어 이동
+                if (_room != null) Destroy(_room.root);
+                _room = RoomBuilder.Build(current, _floor);
+                TeleportPlayer(_room.playerSpawn);
+                CameraFollow.Instance?.Snap();
+                _spawner.Configure(_room.center, _room.half);
+
                 _logger.ResetFloor();
                 _spawner.SpawnWave(current, EnemyCount(_floor));
                 _phase = $"{_floor}층 — 전투";
@@ -58,7 +69,7 @@ namespace AIDungeon.Game
                 }
                 if (_playerHealth.IsDead) { EndGame(); yield break; }
 
-                // --- 층 전환: 프로파일 수집 → AI 판단 ---
+                // --- 층 전환: 프로파일 수집 → AI 판단(다음 층 설계) ---
                 _phase = "AI Director 분석 중...";
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
@@ -72,6 +83,12 @@ namespace AIDungeon.Game
 
                 _floor++;
             }
+        }
+
+        private void TeleportPlayer(Vector2 pos)
+        {
+            _playerHealth.transform.position = pos;
+            if (_playerRb != null) _playerRb.linearVelocity = Vector2.zero;
         }
 
         private void EndGame()
