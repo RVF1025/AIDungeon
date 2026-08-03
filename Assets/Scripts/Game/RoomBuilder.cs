@@ -29,7 +29,7 @@ namespace AIDungeon.Game
             switch (d.topology)
             {
                 case Topology.Corridor:
-                    half = new Vector2(16f, 4f); spawn = center + new Vector2(-half.x + 2.5f, 0); break;
+                    half = new Vector2(19f, 2.6f); spawn = center + new Vector2(-half.x + 2.5f, 0); break;
                 case Topology.Open:
                     half = new Vector2(14f, 9f); spawn = center; break;
                 case Topology.Cover:
@@ -82,21 +82,21 @@ namespace AIDungeon.Game
 
         private static void BuildPillars(GameObject root, Vector2 center, Vector2 half, Vector2 spawn)
         {
-            int count = 6;
+            int count = 5;
             for (int i = 0; i < count; i++)
             {
                 Vector2 p = Vector2.zero;
                 for (int tries = 0; tries < 10; tries++)
                 {
                     p = center + new Vector2(
-                        Random.Range(-half.x + 2f, half.x - 2f),
-                        Random.Range(-half.y + 2f, half.y - 2f));
-                    if (Vector2.Distance(p, spawn) > 3.5f) break; // 스폰 지점은 비움
+                        Random.Range(-half.x + 2.5f, half.x - 2.5f),
+                        Random.Range(-half.y + 2.5f, half.y - 2.5f));
+                    if (Vector2.Distance(p, spawn) > 4f) break; // 스폰 지점은 비움
                 }
                 var go = new GameObject("Pillar");
                 go.transform.SetParent(root.transform, false);
                 go.transform.position = p;
-                go.transform.localScale = new Vector3(1.6f, 1.6f, 1f);
+                go.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
                 var sr = go.AddComponent<SpriteRenderer>();
                 sr.sprite = SpriteFactory.Square();
                 sr.color = new Color(0.32f, 0.32f, 0.4f);

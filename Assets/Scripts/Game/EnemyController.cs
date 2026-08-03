@@ -58,8 +58,8 @@ namespace AIDungeon.Game
                     _moveSpeed = 4.2f; _contactDamage = 8f * dmgScale; _contactCooldown = 0.6f;
                     break;
                 case EnemyType.Ranged:
-                    _moveSpeed = 3.2f; _preferredRange = 5f; _shootRange = 7.5f;
-                    _projDamage = 7f * dmgScale; _shootCooldown = 1.3f; _projSpeed = 7f;
+                    _moveSpeed = 3.2f; _preferredRange = 6f; _shootRange = 11f;
+                    _projDamage = 7f * dmgScale; _shootCooldown = 1.3f; _projSpeed = 8f;
                     break;
                 case EnemyType.Tank:
                     _moveSpeed = 1.8f; _contactDamage = 14f * dmgScale; _contactCooldown = 0.9f;
@@ -92,20 +92,43 @@ namespace AIDungeon.Game
 
             Vector2 toPlayer = (Vector2)(_player.position - transform.position);
             float dist = toPlayer.magnitude;
-            Vector2 dir = toPlayer.normalized;
+            Vector2 dir = dist > 0.001f ? toPlayer / dist : Vector2.zero;
 
+            Vector2 desired;
             if (type == EnemyType.Ranged)
             {
                 // 거리 유지: 너무 가까우면 물러나고, 멀면 다가감 (카이팅)
-                if (dist < _preferredRange - 0.6f) _rb.linearVelocity = -dir * _moveSpeed;
-                else if (dist > _preferredRange + 0.6f) _rb.linearVelocity = dir * _moveSpeed;
-                else _rb.linearVelocity = Vector2.Perpendicular(dir) * (_moveSpeed * 0.6f); // 스트레이핑
+                if (dist < _preferredRange - 0.6f) desired = -dir * _moveSpeed;
+                else if (dist > _preferredRange + 0.6f) desired = dir * _moveSpeed;
+                else desired = Vector2.Perpendicular(dir) * (_moveSpeed * 0.6f); // 스트레이핑
             }
             else
             {
-                // Melee/Tank: 돌진
-                _rb.linearVelocity = dir * _moveSpeed;
+                desired = dir * _moveSpeed; // Melee/Tank: 돌진
             }
+
+            _rb.linearVelocity = AvoidObstacles(desired, toPlayer);
+        }
+
+        /// <summary>진행 방향에 벽/기둥(Solid)이 있으면 플레이어 쪽으로 비껴가게 조향(단순 회피).</summary>
+        private Vector2 AvoidObstacles(Vector2 vel, Vector2 toPlayer)
+        {
+            if (vel.sqrMagnitude < 0.0001f) return vel;
+            float speed = vel.magnitude;
+            Vector2 dir = vel / speed;
+
+            var hits = Physics2D.CircleCastAll(transform.position, 0.45f, dir, 1.3f);
+            foreach (var h in hits)
+            {
+                if (h.collider == null || h.collider.gameObject == gameObject) continue;
+                if (h.collider.GetComponent<Solid>() == null) continue;
+
+                Vector2 perp = Vector2.Perpendicular(dir);
+                if (Vector2.Dot(perp, toPlayer) < 0f) perp = -perp; // 플레이어 방향으로 우회
+                dir = (dir * 0.4f + perp).normalized;
+                break;
+            }
+            return dir * speed;
         }
 
         private void Update()
