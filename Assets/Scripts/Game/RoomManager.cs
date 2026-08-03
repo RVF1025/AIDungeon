@@ -76,7 +76,7 @@ namespace AIDungeon.Game
                 yield return new WaitForSeconds(1.2f); // 암전 자리(연출은 4장에서 확장)
 
                 DirectorDecision next = null;
-                yield return _client.RequestDecision(profile, d => next = d);
+                yield return _client.RequestDecision(profile, _floor + 1, d => next = d);
                 current = next ?? FallbackPresets.Build(profile);
                 _hud?.ShowDecision(current);
                 Debug.Log($"[AI Director] {current}");

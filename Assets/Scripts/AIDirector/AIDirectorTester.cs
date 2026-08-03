@@ -27,10 +27,11 @@ namespace AIDungeon.Director
         private IEnumerator Start()
         {
             Debug.Log("[AIDirector] 테스트 시작 — 프록시 왕복 검증");
-            foreach (var p in _samples)
+            for (int i = 0; i < _samples.Length; i++)
             {
+                var p = _samples[i];
                 Debug.Log($"→ 요청: {p.ToPromptLine()}");
-                yield return _client.RequestDecision(p, d =>
+                yield return _client.RequestDecision(p, i + 1, d =>
                 {
                     Debug.Log($"← 결과: {d}");
                 });

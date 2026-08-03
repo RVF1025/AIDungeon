@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using AIDungeon.Director;
 
@@ -32,14 +33,48 @@ namespace AIDungeon.Game
 
         public void SpawnWave(DirectorDecision d, int count)
         {
-            var (wMelee, wRanged, wTank) = Weights(d.composition);
-            for (int i = 0; i < count; i++)
+            var types = RollTypes(d.composition, d.topology, count);
+
+            if (d.topology == Topology.Corridor)
             {
-                EnemyType type = PickType(wMelee, wRanged, wTank);
-                Vector2 pos = SpawnPos(d.topology, i, count);
-                Spawn(type, pos, d.difficultyModifier);
+                // 통로: 근접 없음. 좌측(플레이어 쪽)부터 탱커 → 원거리 순 진형
+                types.Sort((a, b) => RoleOrder(a).CompareTo(RoleOrder(b)));
+                float x0 = roomCenter.x + roomHalf.x * 0.2f;
+                float x1 = roomCenter.x + roomHalf.x - 2f;
+                for (int i = 0; i < types.Count; i++)
+                {
+                    float t = types.Count <= 1 ? 0.5f : (float)i / (types.Count - 1);
+                    float x = Mathf.Lerp(x0, x1, t);
+                    float y = roomCenter.y + ((i % 2 == 0) ? 1f : -1f) * Random.Range(0f, roomHalf.y - 0.8f);
+                    Spawn(types[i], Clamp(new Vector2(x, y)), d.difficultyModifier);
+                }
+                return;
             }
+
+            for (int i = 0; i < types.Count; i++)
+                Spawn(types[i], SpawnPos(d.topology, i, count), d.difficultyModifier);
         }
+
+        // topology별 배치 규칙: corridor=근접 제외, encircle=탱커 제외
+        private List<EnemyType> RollTypes(string composition, string topology, int count)
+        {
+            var (m, r, t) = Weights(composition);
+            if (topology == Topology.Corridor) m = 0f; // 근접 없음
+            if (topology == Topology.Encircle) t = 0f; // 탱커 없음
+            if (m + r + t <= 0f) { m = r = t = 1f; }   // 안전장치
+
+            var list = new List<EnemyType>(count);
+            for (int i = 0; i < count; i++) list.Add(PickType(m, r, t));
+            return list;
+        }
+
+        // 통로 정렬용: 탱커가 앞(왼쪽), 원거리가 뒤(오른쪽)
+        private static int RoleOrder(EnemyType t) => t switch
+        {
+            EnemyType.Tank => 0,
+            EnemyType.Ranged => 1,
+            _ => 2,
+        };
 
         private static (float, float, float) Weights(string composition) => composition switch
         {

@@ -29,6 +29,21 @@ namespace AIDungeon.Director
             return Topology.Corridor;
         }
 
+        /// <summary>
+        /// 방 유형 선택. 기본은 프로파일 기반(CanonicalTopology)이지만, 3층마다 유형을 순환시켜
+        /// 엄폐(cover)·개활(open)·포위(encircle)·통로(corridor)가 골고루 등장하게 한다.
+        /// (composition=적 구성은 여전히 플레이어를 카운터하고, topology=방 형태만 변주)
+        /// </summary>
+        public static string ChooseTopology(PlayerProfile p, int floor)
+        {
+            if (floor % 3 == 0)
+            {
+                string[] rotation = { Topology.Cover, Topology.Open, Topology.Encircle, Topology.Corridor };
+                return rotation[Mathf.Abs(floor / 3 - 1) % rotation.Length];
+            }
+            return CanonicalTopology(p);
+        }
+
         // difficultyModifier ← avgHpPct (0.8 여유~ 1.3 몰아붙임). 순수 계산, AI는 서사만.
         public static float CanonicalDifficulty(PlayerProfile p)
         {

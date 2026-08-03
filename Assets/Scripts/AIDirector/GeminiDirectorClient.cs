@@ -56,11 +56,11 @@ namespace AIDungeon.Director
         /// 층 전환 판단을 비동기로 요청. 성공/실패 무관하게 항상 onResult가 호출된다.
         /// 사용: StartCoroutine(client.RequestDecision(profile, d => { ... }));
         /// </summary>
-        public IEnumerator RequestDecision(PlayerProfile profile, Action<DirectorDecision> onResult)
+        public IEnumerator RequestDecision(PlayerProfile profile, int floor, Action<DirectorDecision> onResult)
         {
             // 1) 전술을 코드가 먼저 확정 (프롬프트에 실어줌)
             string comp = DirectorPolicy.CanonicalComposition(profile);
-            string topo = DirectorPolicy.CanonicalTopology(profile);
+            string topo = DirectorPolicy.ChooseTopology(profile, floor);
             float diff = DirectorPolicy.CanonicalDifficulty(profile);
 
             string url = proxyUrl;
