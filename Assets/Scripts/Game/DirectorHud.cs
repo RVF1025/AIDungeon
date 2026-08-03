@@ -97,7 +97,7 @@ namespace AIDungeon.Game
             t.fontSize = size;
             t.alignment = align;
             t.color = Color.white;
-            t.enableWordWrapping = true;
+            t.textWrappingMode = TextWrappingModes.Normal;
             t.raycastTarget = false;
             return t;
         }
