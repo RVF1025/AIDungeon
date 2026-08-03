@@ -17,9 +17,13 @@ namespace AIDungeon.Game
         public static readonly HashSet<EnemyController> Active = new();
 
         public EnemyType type;
-        private float _moveSpeed, _contactDamage, _contactCooldown;
+        private float _moveSpeed, _contactDamage, _contactCooldown, _contactRange = 1f;
         private float _preferredRange, _shootRange, _projDamage, _shootCooldown, _projSpeed;
         private float _contactTimer, _shootTimer;
+
+        // 탱커 호위: 주변 원거리 아군 무리와 플레이어 사이를 막아섬
+        private const float TankGuardRadius = 9f;
+        private const float TankStandoff = 3.5f;
 
         private Rigidbody2D _rb;
         private Health _health;
@@ -56,13 +60,15 @@ namespace AIDungeon.Game
             {
                 case EnemyType.Melee:
                     _moveSpeed = 4.2f; _contactDamage = 8f * dmgScale; _contactCooldown = 0.6f;
+                    _contactRange = 1.0f;
                     break;
                 case EnemyType.Ranged:
                     _moveSpeed = 3.2f; _preferredRange = 6f; _shootRange = 11f;
                     _projDamage = 7f * dmgScale; _shootCooldown = 1.3f; _projSpeed = 8f;
                     break;
                 case EnemyType.Tank:
-                    _moveSpeed = 2.7f; _contactDamage = 14f * dmgScale; _contactCooldown = 0.9f;
+                    _moveSpeed = 2.7f; _contactDamage = 8f * dmgScale; _contactCooldown = 0.8f;
+                    _contactRange = 1.5f; // 덩치 큰 만큼 넓은 근접, 약한 데미지
                     break;
             }
         }
@@ -102,12 +108,37 @@ namespace AIDungeon.Game
                 else if (dist > _preferredRange + 0.6f) desired = dir * _moveSpeed;
                 else desired = Vector2.Perpendicular(dir) * (_moveSpeed * 0.6f); // 스트레이핑
             }
+            else if (type == EnemyType.Tank)
+            {
+                desired = TankDesired((Vector2)_player.position, dir);
+            }
             else
             {
-                desired = dir * _moveSpeed; // Melee/Tank: 돌진
+                desired = dir * _moveSpeed; // Melee: 돌진
             }
 
             _rb.linearVelocity = AvoidObstacles(desired, toPlayer);
+        }
+
+        /// <summary>
+        /// 탱커 호위: 주변에 원거리 아군이 있으면 그 무리와 플레이어 사이(무리 앞 TankStandoff 거리)를
+        /// 막아선다. 없으면 홀로 돌진. → kiter_pack에서 "탱커가 원거리를 지키는" 진형이 자연스레 형성.
+        /// </summary>
+        private Vector2 TankDesired(Vector2 playerPos, Vector2 dirToPlayer)
+        {
+            int n = 0; Vector2 sum = Vector2.zero;
+            foreach (var e in Active)
+            {
+                if (e == null || e == this || e.type != EnemyType.Ranged) continue;
+                if (Vector2.Distance(e.transform.position, transform.position) > TankGuardRadius) continue;
+                sum += (Vector2)e.transform.position; n++;
+            }
+            if (n == 0) return dirToPlayer * _moveSpeed; // 홀로면 돌진
+
+            Vector2 centroid = sum / n;
+            Vector2 guard = centroid + (playerPos - centroid).normalized * TankStandoff;
+            Vector2 toGuard = guard - (Vector2)transform.position;
+            return toGuard.sqrMagnitude < 0.04f ? Vector2.zero : toGuard.normalized * _moveSpeed;
         }
 
         /// <summary>진행 방향에 벽/기둥(Solid)이 있으면 플레이어 쪽으로 비껴가게 조향(단순 회피).</summary>
@@ -166,11 +197,12 @@ namespace AIDungeon.Game
             }
             else
             {
-                if (dist <= 1.0f && _contactTimer <= 0f)
+                if (dist <= _contactRange && _contactTimer <= 0f)
                 {
                     _contactTimer = _contactCooldown;
-                    _playerHealth.TakeDamage(_contactDamage,
-                        ((Vector2)(_player.position - transform.position)).normalized);
+                    Vector2 d = ((Vector2)(_player.position - transform.position)).normalized;
+                    _playerHealth.TakeDamage(_contactDamage, d);
+                    Vfx.Spark(transform.position + (Vector3)(d * 0.6f), new Color(1f, 0.85f, 0.5f)); // 근접 스윙
                 }
             }
         }
