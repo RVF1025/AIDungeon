@@ -38,7 +38,7 @@ namespace AIDungeon.Game
                 var health = h.GetComponentInParent<Health>();
                 if (health == null || health.IsDead || health.team == _owner) continue;
 
-                health.TakeDamage(_damage);
+                health.TakeDamage(_damage, _velocity.normalized);
                 if (_owner == Team.Player && BehaviorLogger.Instance != null)
                     BehaviorLogger.Instance.RecordDamage(_playerDamageType, _damage);
 

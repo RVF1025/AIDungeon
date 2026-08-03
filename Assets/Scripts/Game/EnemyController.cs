@@ -23,6 +23,7 @@ namespace AIDungeon.Game
 
         private Rigidbody2D _rb;
         private Health _health;
+        private HitReaction _hit;
         private Transform _player;
         private Health _playerHealth;
 
@@ -62,6 +63,9 @@ namespace AIDungeon.Game
                 _rb.linearVelocity = Vector2.zero;
                 return;
             }
+
+            if (_hit == null) _hit = GetComponent<HitReaction>();
+            if (_hit != null && _hit.IsStunned) return; // 넉백 중엔 물리에 맡김
 
             Vector2 toPlayer = (Vector2)(_player.position - transform.position);
             float dist = toPlayer.magnitude;
@@ -107,7 +111,8 @@ namespace AIDungeon.Game
                 if (dist <= 1.0f && _contactTimer <= 0f)
                 {
                     _contactTimer = _contactCooldown;
-                    _playerHealth.TakeDamage(_contactDamage);
+                    _playerHealth.TakeDamage(_contactDamage,
+                        ((Vector2)(_player.position - transform.position)).normalized);
                 }
             }
         }

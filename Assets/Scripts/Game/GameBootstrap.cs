@@ -103,6 +103,7 @@ namespace AIDungeon.Game
             health = go.AddComponent<Health>();
             health.Init(Team.Player, 100f);
             go.AddComponent<PlayerController>();
+            go.AddComponent<HitReaction>();
             return go;
         }
     }

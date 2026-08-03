@@ -78,7 +78,8 @@ namespace AIDungeon.Game
             {
                 var hp = h.GetComponentInParent<Health>();
                 if (hp == null || hp.IsDead || hp.team != Team.Enemy) continue;
-                hp.TakeDamage(meleeDamage);
+                Vector2 dir = ((Vector2)(hp.transform.position - transform.position)).normalized;
+                hp.TakeDamage(meleeDamage, dir);
                 BehaviorLogger.Instance?.RecordDamage(DamageType.Melee, meleeDamage);
             }
             SlashFx(center);

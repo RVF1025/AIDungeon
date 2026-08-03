@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace AIDungeon.Game
 {
-    /// <summary>체력 + 피아 팀. 투사체/근접이 반대 팀만 때린다.</summary>
+    /// <summary>체력 + 피아 팀. 피격/사망 이벤트로 연출(HitReaction)을 구동한다.</summary>
     public class Health : MonoBehaviour
     {
         public Team team;
@@ -12,6 +12,8 @@ namespace AIDungeon.Game
         public float Fraction => maxHp <= 0 ? 0 : Mathf.Clamp01(CurrentHp / maxHp);
         public bool IsDead { get; private set; }
 
+        /// <summary>(피격 대상, 데미지량, 피격 방향)</summary>
+        public event Action<Health, float, Vector2> OnDamaged;
         public event Action<Health> OnDeath;
 
         public void Init(Team team, float maxHp)
@@ -27,11 +29,12 @@ namespace AIDungeon.Game
             if (CurrentHp <= 0 && !IsDead) CurrentHp = maxHp;
         }
 
-        /// <summary>데미지 적용. 죽으면 true 반환.</summary>
-        public bool TakeDamage(float amount)
+        /// <summary>데미지 적용. 죽으면 true. hitDir은 넉백/이펙트 방향(공격자→대상).</summary>
+        public bool TakeDamage(float amount, Vector2 hitDir = default)
         {
             if (IsDead) return false;
             CurrentHp -= amount;
+            OnDamaged?.Invoke(this, amount, hitDir);
             if (CurrentHp <= 0)
             {
                 CurrentHp = 0;
