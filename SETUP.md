@@ -41,14 +41,21 @@ Assets/Scripts/AIDirector/
 
 ---
 
+## 진행 로그
+- ✅ **프록시 왕복 뚫림** (Vercel). Director 요청 3/3 성공, ~1.1초, 구조화 JSON 정상.
+  Cloudflare는 egress 지역 뽑기로 실패 → Vercel(미국 리전 고정)로 교체함.
+- GitHub 원격 = `RVF1025/AIDungeon` (커밋 저자도 RVF1025로 정리).
+
 ## 네가 돌아와서 할 것 (순서대로)
 
-1. **키 재발급 권장** — 지금 키는 채팅에 노출됐음. 최종 공개 전 AI Studio에서 Revoke 후 새 키.
-2. **프록시 배포** — `proxy/DEPLOY.md` 따라 Cloudflare Worker 생성 + `GEMINI_API_KEY` Secret 등록.
-3. **Unity 연결** — 씬에 빈 GameObject 만들고 `GeminiDirectorClient` + `AIDirectorTester` 추가,
-   인스펙터 `proxyUrl`에 Worker 주소 입력.
-4. **Play** — Console에 4개 샘플의 판단 결과가 찍히면 왕복 성공. (오프라인 확인은 컴포넌트
+1. **Vercel 고정 주소 확보** — preview 해시 주소 말고 **프로덕션 도메인**(예:
+   `https://ai-dungeon-rvf1.vercel.app`) + `/api/gemini`. Vercel 프로젝트 Domains에서 확인.
+2. **Unity 연결** — 씬에 빈 GameObject 만들고 `GeminiDirectorClient` + `AIDirectorTester` 추가,
+   인스펙터 `proxyUrl`에 위 프로덕션 주소 입력.
+3. **Play** — Console에 4개 샘플의 판단 결과가 찍히면 왕복 성공. (오프라인 확인은 컴포넌트
    우클릭 > `TestFallback`)
-5. **WebGL 모듈 설치 완료 확인** — 이후 Web 플랫폼으로 빌드해 브라우저에서 CORS까지 재검증.
+4. **WebGL 모듈 설치 완료 확인** — 이후 Web 플랫폼으로 빌드해 브라우저에서 CORS까지 재검증.
+5. **키 재발급** — 지금 키는 채팅에 노출됐음. 최종 공개 전 AI Studio에서 Revoke 후 새 키로
+   Vercel 환경변수 교체.
 
 > git: 로컬 리포 초기화됨(`.gitignore` 포함, Library 제외). GitHub 원격 연결은 리포 만들면 연결해줌.
