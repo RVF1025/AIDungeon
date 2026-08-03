@@ -26,8 +26,8 @@ namespace AIDungeon.Director
         public string modelOverride = "";
 
         [Header("동작")]
-        [Tooltip("초과 시 폴백 프리셋 사용")]
-        public float timeoutSeconds = 4f;
+        [Tooltip("초과 시 폴백 프리셋 사용 (프록시 4초보다 여유 있게)")]
+        public float timeoutSeconds = 5f;
 
         [Range(0f, 1f)] public float temperature = 0.6f;
 

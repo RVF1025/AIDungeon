@@ -42,9 +42,9 @@ export default {
     const endpoint =
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-    // 3초 타임아웃 → 초과 시 Unity가 폴백 프리셋을 쓰도록 502 반환.
+    // 4초 타임아웃 → 초과 시 Unity가 폴백 프리셋을 쓰도록 502 반환.
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const timer = setTimeout(() => ctrl.abort(), 4000);
 
     let g;
     try {
