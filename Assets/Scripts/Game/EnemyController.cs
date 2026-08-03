@@ -24,8 +24,15 @@ namespace AIDungeon.Game
         private Rigidbody2D _rb;
         private Health _health;
         private HitReaction _hit;
+        private SpriteRenderer _sr;
         private Transform _player;
         private Health _playerHealth;
+
+        // 스폰 텔레그래프: 회색 반투명으로 나타났다가 진해진 뒤 활성화(플레이어 대응 시간).
+        private const float SpawnDelay = 1.1f;
+        private float _spawnTimer;
+        private bool _active;
+        public Color RealColor { get; private set; }
 
         public void Init(EnemyType type, float hp, float dmgScale, Transform player, Health playerHealth)
         {
@@ -35,8 +42,15 @@ namespace AIDungeon.Game
 
             _rb = GetComponent<Rigidbody2D>();
             _health = GetComponent<Health>();
+            _sr = GetComponent<SpriteRenderer>();
             _health.Init(Team.Enemy, hp);
             _health.OnDeath += _ => Destroy(gameObject);
+
+            // 텔레그래프 시작: 실제 색 보관, 회색 반투명으로 표시
+            RealColor = _sr != null ? _sr.color : Color.white;
+            _spawnTimer = SpawnDelay;
+            _active = false;
+            if (_sr != null) _sr.color = new Color(0.75f, 0.75f, 0.8f, 0.12f);
 
             switch (type)
             {
@@ -56,6 +70,13 @@ namespace AIDungeon.Game
         private void OnEnable() => Active.Add(this);
         private void OnDisable() => Active.Remove(this);
 
+        private void Activate()
+        {
+            _active = true;
+            if (_sr != null) _sr.color = RealColor;
+            Vfx.Spark(transform.position, RealColor); // 등장 순간 팟
+        }
+
         private void FixedUpdate()
         {
             if (_player == null || _playerHealth == null || _playerHealth.IsDead)
@@ -63,6 +84,8 @@ namespace AIDungeon.Game
                 _rb.linearVelocity = Vector2.zero;
                 return;
             }
+
+            if (!_active) { _rb.linearVelocity = Vector2.zero; return; } // 스폰 중엔 정지
 
             if (_hit == null) _hit = GetComponent<HitReaction>();
             if (_hit != null && _hit.IsStunned) return; // 넉백 중엔 물리에 맡김
@@ -87,6 +110,18 @@ namespace AIDungeon.Game
 
         private void Update()
         {
+            if (!_active)
+            {
+                _spawnTimer -= Time.deltaTime;
+                if (_sr != null)
+                {
+                    float p = Mathf.Clamp01(1f - _spawnTimer / SpawnDelay);
+                    _sr.color = new Color(0.75f, 0.75f, 0.8f, Mathf.Lerp(0.12f, 0.7f, p));
+                }
+                if (_spawnTimer <= 0f) Activate();
+                return;
+            }
+
             if (_player == null || _playerHealth == null || _playerHealth.IsDead) return;
             _contactTimer -= Time.deltaTime;
             _shootTimer -= Time.deltaTime;

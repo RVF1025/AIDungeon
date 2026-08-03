@@ -25,7 +25,8 @@ namespace AIDungeon.Game
             _rb = GetComponent<Rigidbody2D>();
             _health = GetComponent<Health>();
             _enemy = GetComponent<EnemyController>();
-            if (_sr != null) _base = _sr.color;
+            // 적은 스폰 텔레그래프로 색이 회색이므로 EnemyController의 실제 색을 기준으로 잡는다.
+            if (_sr != null) _base = _enemy != null ? _enemy.RealColor : _sr.color;
             _health.OnDamaged += OnDamaged;
             _health.OnDeath += OnDeath;
         }
