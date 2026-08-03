@@ -67,11 +67,15 @@ namespace AIDungeon.Game
                     return Clamp(p + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * 5.5f);
                 case Topology.Open: // 멀리 넓게 분산
                     return Clamp(roomCenter + new Vector2(
-                        Random.Range(-roomHalf.x, roomHalf.x),
-                        Random.Range(-roomHalf.y, roomHalf.y)));
-                case Topology.Corridor: // 한쪽에 일렬
-                    return Clamp(new Vector2(roomCenter.x + roomHalf.x - 1.5f,
-                        Mathf.Lerp(-roomHalf.y + 1, roomHalf.y - 1, count <= 1 ? 0.5f : (float)i / (count - 1))));
+                        Random.Range(-(roomHalf.x - 1f), roomHalf.x - 1f),
+                        Random.Range(-(roomHalf.y - 1f), roomHalf.y - 1f)));
+                case Topology.Corridor: // 통로 오른쪽 구간에 길이 방향으로 분산(겹침 방지)
+                {
+                    float t = count <= 1 ? 0.5f : (float)i / (count - 1);
+                    float x = roomCenter.x + Mathf.Lerp(roomHalf.x * 0.35f, roomHalf.x - 2f, t);
+                    float y = roomCenter.y + Random.Range(-(roomHalf.y - 0.8f), roomHalf.y - 0.8f);
+                    return Clamp(new Vector2(x, y));
+                }
                 default: // cover 등: 플레이어에서 적당히 떨어진 랜덤
                     return FarFromPlayer(p);
             }
@@ -82,7 +86,8 @@ namespace AIDungeon.Game
             for (int tries = 0; tries < 8; tries++)
             {
                 Vector2 c = Clamp(roomCenter + new Vector2(
-                    Random.Range(-roomHalf.x, roomHalf.x), Random.Range(-roomHalf.y, roomHalf.y)));
+                    Random.Range(-(roomHalf.x - 1f), roomHalf.x - 1f),
+                    Random.Range(-(roomHalf.y - 1f), roomHalf.y - 1f)));
                 if (Vector2.Distance(c, p) >= 4f) return c;
             }
             return Clamp(p + Vector2.right * 4f);

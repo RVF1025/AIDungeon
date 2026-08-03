@@ -59,7 +59,7 @@ namespace AIDungeon.Game
             sr.color = Color.HSVToRGB((floor * 0.08f) % 1f, 0.22f, 0.16f);
             sr.sortingOrder = -10;
 
-            float t = 1f;
+            float t = 1.5f; // 두꺼운 벽 → 빠른/겹친 몹의 관통 방지
             Wall(root, center + new Vector2(0, half.y + t / 2f), new Vector2(half.x * 2f + t * 2f, t));
             Wall(root, center + new Vector2(0, -half.y - t / 2f), new Vector2(half.x * 2f + t * 2f, t));
             Wall(root, center + new Vector2(half.x + t / 2f, 0), new Vector2(t, half.y * 2f));

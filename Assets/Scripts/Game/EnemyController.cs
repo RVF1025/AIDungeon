@@ -62,7 +62,7 @@ namespace AIDungeon.Game
                     _projDamage = 7f * dmgScale; _shootCooldown = 1.3f; _projSpeed = 8f;
                     break;
                 case EnemyType.Tank:
-                    _moveSpeed = 1.8f; _contactDamage = 14f * dmgScale; _contactCooldown = 0.9f;
+                    _moveSpeed = 2.7f; _contactDamage = 14f * dmgScale; _contactCooldown = 0.9f;
                     break;
             }
         }
@@ -85,7 +85,7 @@ namespace AIDungeon.Game
                 return;
             }
 
-            if (!_active) { _rb.linearVelocity = Vector2.zero; return; } // 스폰 중엔 정지
+            if (!_active) return; // 스폰 중엔 AI 정지(속도 강제 X → 겹친 스폰이 물리로 자연 분리)
 
             if (_hit == null) _hit = GetComponent<HitReaction>();
             if (_hit != null && _hit.IsStunned) return; // 넉백 중엔 물리에 맡김
