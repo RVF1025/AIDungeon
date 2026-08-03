@@ -36,10 +36,12 @@ namespace AIDungeon.Director
         /// </summary>
         public static string ChooseTopology(PlayerProfile p, int floor)
         {
-            if (floor % 3 == 0)
+            // 짝수 층마다 방 유형을 순환(2층부터 cover 시작) → 모든 방이 골고루·자주 등장.
+            // 홀수 층은 프로파일 기반(플레이어를 읽는 느낌 유지).
+            if (floor % 2 == 0)
             {
                 string[] rotation = { Topology.Cover, Topology.Open, Topology.Encircle, Topology.Corridor };
-                return rotation[Mathf.Abs(floor / 3 - 1) % rotation.Length];
+                return rotation[((floor / 2) - 1) % rotation.Length];
             }
             return CanonicalTopology(p);
         }
