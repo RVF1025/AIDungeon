@@ -8,6 +8,7 @@ namespace AIDungeon.Game
     {
         public Team team;
         public float maxHp = 100f;
+        public bool invulnerable; // 방패병 본체: 방패 살아있는 동안 true
         public float CurrentHp { get; private set; }
         public float Fraction => maxHp <= 0 ? 0 : Mathf.Clamp01(CurrentHp / maxHp);
         public bool IsDead { get; private set; }
@@ -32,7 +33,7 @@ namespace AIDungeon.Game
         /// <summary>데미지 적용. 죽으면 true. hitDir은 넉백/이펙트 방향(공격자→대상).</summary>
         public bool TakeDamage(float amount, Vector2 hitDir = default)
         {
-            if (IsDead) return false;
+            if (IsDead || invulnerable) return false;
             CurrentHp -= amount;
             OnDamaged?.Invoke(this, amount, hitDir);
             if (CurrentHp <= 0)

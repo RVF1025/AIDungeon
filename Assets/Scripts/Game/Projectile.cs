@@ -36,7 +36,7 @@ namespace AIDungeon.Game
             foreach (var h in hits)
             {
                 var health = h.GetComponentInParent<Health>();
-                if (health == null || health.IsDead || health.team == _owner) continue;
+                if (health == null || health.IsDead || health.team == _owner || health.invulnerable) continue;
 
                 health.TakeDamage(_damage, _velocity.normalized);
                 if (_owner == Team.Player && BehaviorLogger.Instance != null)

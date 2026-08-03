@@ -145,7 +145,7 @@ namespace AIDungeon.Game
             {
                 case EnemyType.Melee: col = new Color(0.9f, 0.3f, 0.3f); scale = 0.8f; baseHp = 40f; break;
                 case EnemyType.Ranged: col = new Color(1f, 0.75f, 0.2f); scale = 0.7f; baseHp = 30f; break;
-                default: col = new Color(0.6f, 0.2f, 0.5f); scale = 0.8f; baseHp = 140f; break; // Tank(근접몹과 동일 크기, 방패로 식별)
+                default: col = new Color(0.6f, 0.2f, 0.5f); scale = 0.8f; baseHp = 60f; break; // Tank(방패로 버팀 → 본체 HP 낮음)
             }
             sr.color = col;
             go.transform.localScale = Vector3.one * scale;

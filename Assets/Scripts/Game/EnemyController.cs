@@ -20,7 +20,9 @@ namespace AIDungeon.Game
         private float _moveSpeed, _contactDamage, _contactCooldown, _contactRange = 1f;
         private float _preferredRange, _shootRange, _projDamage, _shootCooldown, _projSpeed;
         private float _contactTimer, _shootTimer;
-        private Transform _shield; // 탱커가 플레이어를 향해 드는 방패(시각)
+        private Transform _shield; // 탱커가 플레이어를 향해 드는 방패(부술 수 있음)
+        private float _diff = 1f;
+        private const float ShieldHp = 70f;
 
         private Rigidbody2D _rb;
         private Health _health;
@@ -40,12 +42,17 @@ namespace AIDungeon.Game
             this.type = type;
             _player = player;
             _playerHealth = playerHealth;
+            _diff = dmgScale;
 
             _rb = GetComponent<Rigidbody2D>();
             _health = GetComponent<Health>();
             _sr = GetComponent<SpriteRenderer>();
             _health.Init(Team.Enemy, hp);
-            _health.OnDeath += _ => Destroy(gameObject);
+            _health.OnDeath += _ =>
+            {
+                if (_shield != null) Destroy(_shield.gameObject); // 본체 죽으면 방패도 제거
+                Destroy(gameObject);
+            };
 
             // 텔레그래프 시작: 실제 색 보관, 회색 반투명으로 표시
             RealColor = _sr != null ? _sr.color : Color.white;
@@ -83,13 +90,33 @@ namespace AIDungeon.Game
 
         private void CreateShield()
         {
+            // 독립 오브젝트(자식 X: 중첩 리지드바디 방지). LateUpdate가 플레이어 향해 배치.
             var go = new GameObject("Shield");
-            go.transform.SetParent(transform, false);
             go.transform.localScale = new Vector3(1.6f, 0.35f, 1f); // 넓고 얇은 직사각형
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Square();
             sr.color = new Color(0.78f, 0.8f, 0.88f); // 강철색
             sr.sortingOrder = 3; // 몸통(2) 위
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.isTrigger = true; // 히트박스(공격 판정용), 물리 밀침 없음
+            var rb = go.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Kinematic; // 매 프레임 이동하는 콜라이더
+            rb.gravityScale = 0f;
+
+            var sh = go.AddComponent<Health>();
+            sh.Init(Team.Enemy, ShieldHp * _diff);
+            go.AddComponent<HitReaction>(); // 피격 플래시/데미지 숫자 + 파괴 시 파열
+
+            // 방패가 살아있는 동안 본체 무적 → 깨지면 노출
+            _health.invulnerable = true;
+            sh.OnDeath += _ =>
+            {
+                _health.invulnerable = false;
+                _shield = null;
+                Destroy(go);
+            };
+
             _shield = go.transform;
         }
 
