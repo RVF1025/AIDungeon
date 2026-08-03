@@ -1,11 +1,13 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace AIDungeon.Game
 {
     /// <summary>
     /// 탑다운 조작: WASD 이동, 좌클릭 근접(짧은 사거리), 우클릭 원거리(쿨타임 투사체).
     /// 근접/원거리 선택이 명확히 갈리도록 두 공격의 성격을 분리(설계 문서 2장).
-    /// 입력은 구형 Input API 사용 → Project Settings > Player > Active Input Handling = Both(또는 Old).
+    /// 입력은 Input System 저수준 API(Keyboard/Mouse.current) 사용 — .inputactions 에셋/씬 배선
+    /// 불필요, Active Input Handling 설정도 필요 없음.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(Health))]
@@ -41,22 +43,28 @@ namespace AIDungeon.Game
             _rangedTimer -= Time.deltaTime;
             if (_health.IsDead) return;
 
-            if (Input.GetMouseButton(0) && _meleeTimer <= 0f) DoMelee();
-            if (Input.GetMouseButton(1) && _rangedTimer <= 0f) DoRanged();
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+            if (mouse.leftButton.isPressed && _meleeTimer <= 0f) DoMelee();
+            if (mouse.rightButton.isPressed && _rangedTimer <= 0f) DoRanged();
         }
 
         private void FixedUpdate()
         {
             if (_health.IsDead) { _rb.linearVelocity = Vector2.zero; return; }
-            float x = Input.GetAxisRaw("Horizontal");
-            float y = Input.GetAxisRaw("Vertical");
+            var kb = Keyboard.current;
+            if (kb == null) { _rb.linearVelocity = Vector2.zero; return; }
+
+            float x = (kb.dKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed ? 1f : 0f);
+            float y = (kb.wKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed ? 1f : 0f);
             _rb.linearVelocity = new Vector2(x, y).normalized * moveSpeed;
         }
 
         private Vector2 AimDir()
         {
             if (_cam == null) _cam = Camera.main;
-            Vector3 m = _cam.ScreenToWorldPoint(Input.mousePosition);
+            Vector2 screen = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+            Vector3 m = _cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, 0f));
             return ((Vector2)(m - transform.position)).normalized;
         }
 

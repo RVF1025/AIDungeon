@@ -6,7 +6,7 @@ namespace AIDungeon.Game
     /// <summary>
     /// 씬/프리팹 없이 Play 시 전체 게임을 코드로 구성한다.
     /// 사용법: 빈 씬에 빈 GameObject 하나 만들고 이 컴포넌트만 붙이면 끝.
-    /// (Project Settings > Player > Active Input Handling = Both 로 설정 필요)
+    /// (입력은 Input System 저수준 API 사용 — 별도 프로젝트 설정 불필요)
     /// </summary>
     public class GameBootstrap : MonoBehaviour
     {
