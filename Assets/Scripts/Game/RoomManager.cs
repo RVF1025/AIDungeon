@@ -90,15 +90,15 @@ namespace AIDungeon.Game
         // 전술(구성/방형태/난이도)은 결정론 — AI 없이 즉시. 대사는 임시(프리셋)로 채워두고 나중에 교체.
         private DirectorDecision BuildTactics(PlayerProfile p, int floor)
         {
-            var d = new DirectorDecision
+            // analysis는 비워둠 → HUD가 "분석 중…" 표시, FetchDialogue가 한 번에 공개(AI 또는 프리셋).
+            return new DirectorDecision
             {
                 composition = DirectorPolicy.CanonicalComposition(p),
                 topology = DirectorPolicy.ChooseTopology(p, floor),
                 difficultyModifier = DirectorPolicy.CanonicalDifficulty(p),
                 tone = DirectorPolicy.CanonicalTone(p),
+                analysis = null,
             };
-            d.analysis = FallbackPresets.AnalysisFor(d);
-            return d;
         }
 
         // AI 대사를 백그라운드로 받아 도착하면 HUD 갱신(실패하면 임시 대사 유지). 게임은 안 멈춤.
@@ -106,13 +106,14 @@ namespace AIDungeon.Game
         {
             DirectorDecision res = null;
             yield return _client.RequestDecision(profile, floor, d => res = d);
-            if (res != null && !res.fromFallback)
-            {
-                target.analysis = res.analysis;
-                target.tone = res.tone;
-                if (_current == target) _hud?.ShowDecision(target); // 아직 그 방이면 대사 교체
-                Debug.Log($"[AI Director] {target}");
-            }
+            if (res == null) yield break;
+
+            // AI 성공이든 폴백이든 res.analysis를 한 번에 공개("분석 중…" → 대사).
+            target.analysis = res.analysis;
+            target.tone = res.tone;
+            target.fromFallback = res.fromFallback;
+            if (_current == target) _hud?.ShowDecision(target);
+            Debug.Log($"[AI Director] {target}");
         }
 
         // 한 전투 방: 생성 → 이동 → 스폰 → 전멸 대기 (사망 시 즉시 반환)

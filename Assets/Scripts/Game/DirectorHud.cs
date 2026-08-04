@@ -107,7 +107,7 @@ namespace AIDungeon.Game
         {
             if (d == null) return;
             _tag.text = $"{(d.fromFallback ? "[폴백]" : "[AI]")}   {d.composition} / {d.topology} / x{d.difficultyModifier:0.00} / {d.tone}";
-            _analysis.text = $"“{d.analysis}”";
+            _analysis.text = string.IsNullOrWhiteSpace(d.analysis) ? "분석 중…" : $"“{d.analysis}”";
         }
     }
 }
