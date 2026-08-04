@@ -62,14 +62,21 @@ namespace AIDungeon.Game
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
 
+                // 선택하는 동안 AI 요청을 미리 시작(대기 시간 일부 은폐)
+                int nextFloor = _floor + 1;
+                DirectorDecision res = null; bool ready = false;
+                StartCoroutine(_client.RequestDecision(profile, nextFloor, d => { res = d; ready = true; }));
+
                 var options = BuildOptions();
                 int idx = 0;
                 _phase = "갈림길 선택";
                 yield return _select.Choose(options, "다음 갈림길을 고르시오.", i => idx = i);
 
-                // === 다음 방: 전술은 결정론으로 즉시 계산(대기 X), 대사만 AI가 나중에 채움 ===
-                int nextFloor = _floor + 1;
-                var decision = BuildTactics(profile, nextFloor);
+                // === 대사가 올 때까지 대기한 뒤 그 방을 띄운다 ===
+                _phase = "AI Director 분석 중...";
+                while (!ready) yield return null;
+                var decision = res ?? FallbackPresets.Build(profile);
+
                 switch (options[idx].kind)
                 {
                     case PathKind.Rest:
@@ -81,39 +88,10 @@ namespace AIDungeon.Game
                 }
 
                 _current = decision;
-                _hud?.ShowDecision(_current);                          // 임시 대사 즉시 표시
-                StartCoroutine(FetchDialogue(profile, nextFloor, decision)); // AI 대사는 백그라운드
+                _hud?.ShowDecision(_current);
+                Debug.Log($"[AI Director] {_current}");
                 _floor++;
             }
-        }
-
-        // 전술(구성/방형태/난이도)은 결정론 — AI 없이 즉시. 대사는 임시(프리셋)로 채워두고 나중에 교체.
-        private DirectorDecision BuildTactics(PlayerProfile p, int floor)
-        {
-            // analysis는 비워둠 → HUD가 "분석 중…" 표시, FetchDialogue가 한 번에 공개(AI 또는 프리셋).
-            return new DirectorDecision
-            {
-                composition = DirectorPolicy.CanonicalComposition(p),
-                topology = DirectorPolicy.ChooseTopology(p, floor),
-                difficultyModifier = DirectorPolicy.CanonicalDifficulty(p),
-                tone = DirectorPolicy.CanonicalTone(p),
-                analysis = null,
-            };
-        }
-
-        // AI 대사를 백그라운드로 받아 도착하면 HUD 갱신(실패하면 임시 대사 유지). 게임은 안 멈춤.
-        private IEnumerator FetchDialogue(PlayerProfile profile, int floor, DirectorDecision target)
-        {
-            DirectorDecision res = null;
-            yield return _client.RequestDecision(profile, floor, d => res = d);
-            if (res == null) yield break;
-
-            // AI 성공이든 폴백이든 res.analysis를 한 번에 공개("분석 중…" → 대사).
-            target.analysis = res.analysis;
-            target.tone = res.tone;
-            target.fromFallback = res.fromFallback;
-            if (_current == target) _hud?.ShowDecision(target);
-            Debug.Log($"[AI Director] {target}");
         }
 
         // 한 전투 방: 생성 → 이동 → 스폰 → 전멸 대기 (사망 시 즉시 반환)
