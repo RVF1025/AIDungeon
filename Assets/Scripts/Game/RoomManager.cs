@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using AIDungeon.Director;
 
 namespace AIDungeon.Game
@@ -20,7 +21,6 @@ namespace AIDungeon.Game
 
         private int _floor = 1;
         private string _phase = "";
-        private bool _gameOver;
         private Room _room;
 
         public void Begin(EnemySpawner spawner, GeminiDirectorClient client,
@@ -93,17 +93,15 @@ namespace AIDungeon.Game
 
         private void EndGame()
         {
-            _gameOver = true;
-            _phase = $"게임 오버 — {_floor}층까지 도달";
+            GameSession.FloorsReached = _floor;
+            SceneManager.LoadScene(GameSession.SceneGameOver);
         }
 
         private void Update()
         {
             if (_hud == null) return;
             int hp = _playerHealth != null ? Mathf.CeilToInt(_playerHealth.CurrentHp) : 0;
-            _hud.SetStatus(_gameOver
-                ? _phase
-                : $"{_phase}    HP {hp}    적 {EnemyController.Active.Count}");
+            _hud.SetStatus($"{_phase}    HP {hp}    적 {EnemyController.Active.Count}");
         }
     }
 }
