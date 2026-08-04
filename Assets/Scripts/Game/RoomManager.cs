@@ -24,6 +24,7 @@ namespace AIDungeon.Game
         private int _floor = 1;
         private string _phase = "";
         private Room _room;
+        private DirectorDecision _current;
 
         public void Begin(EnemySpawner spawner, GeminiDirectorClient client,
                           BehaviorLogger logger, Health playerHealth, DirectorHud hud)
@@ -48,31 +49,27 @@ namespace AIDungeon.Game
 
         private IEnumerator RunGame()
         {
-            var current = IntroDecision();
-            _hud?.ShowDecision(current);
+            _current = IntroDecision();
+            _hud?.ShowDecision(_current);
 
             while (true) // 무한 — 사망 시에만 종료
             {
                 // === 전투 페이즈 ===
-                yield return RunCombat(current);
+                yield return RunCombat(_current);
                 if (_playerHealth.IsDead) { EndGame(); yield break; }
 
-                // === 전환: AI를 백그라운드로 돌리고(선택하는 동안 레이턴시 은폐) 갈림길 제시 ===
+                // === 갈림길 선택 ===
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
-
-                DirectorDecision next = null; bool aiReady = false;
-                StartCoroutine(_client.RequestDecision(profile, _floor + 1, d => { next = d; aiReady = true; }));
 
                 var options = BuildOptions();
                 int idx = 0;
                 _phase = "갈림길 선택";
                 yield return _select.Choose(options, "다음 갈림길을 고르시오.", i => idx = i);
 
-                while (!aiReady) yield return null; // 아직이면 잠깐 대기(폴백 타임아웃 내)
-                var decision = next ?? FallbackPresets.Build(profile);
-
-                // === 선택 결과 적용 (스켈레톤: 전투/정예/휴식) ===
+                // === 다음 방: 전술은 결정론으로 즉시 계산(대기 X), 대사만 AI가 나중에 채움 ===
+                int nextFloor = _floor + 1;
+                var decision = BuildTactics(profile, nextFloor);
                 switch (options[idx].kind)
                 {
                     case PathKind.Rest:
@@ -83,10 +80,38 @@ namespace AIDungeon.Game
                         break;
                 }
 
-                current = decision;
-                _hud?.ShowDecision(current);
-                Debug.Log($"[AI Director] {current}");
+                _current = decision;
+                _hud?.ShowDecision(_current);                          // 임시 대사 즉시 표시
+                StartCoroutine(FetchDialogue(profile, nextFloor, decision)); // AI 대사는 백그라운드
                 _floor++;
+            }
+        }
+
+        // 전술(구성/방형태/난이도)은 결정론 — AI 없이 즉시. 대사는 임시(프리셋)로 채워두고 나중에 교체.
+        private DirectorDecision BuildTactics(PlayerProfile p, int floor)
+        {
+            var d = new DirectorDecision
+            {
+                composition = DirectorPolicy.CanonicalComposition(p),
+                topology = DirectorPolicy.ChooseTopology(p, floor),
+                difficultyModifier = DirectorPolicy.CanonicalDifficulty(p),
+                tone = DirectorPolicy.CanonicalTone(p),
+            };
+            d.analysis = FallbackPresets.AnalysisFor(d);
+            return d;
+        }
+
+        // AI 대사를 백그라운드로 받아 도착하면 HUD 갱신(실패하면 임시 대사 유지). 게임은 안 멈춤.
+        private IEnumerator FetchDialogue(PlayerProfile profile, int floor, DirectorDecision target)
+        {
+            DirectorDecision res = null;
+            yield return _client.RequestDecision(profile, floor, d => res = d);
+            if (res != null && !res.fromFallback)
+            {
+                target.analysis = res.analysis;
+                target.tone = res.tone;
+                if (_current == target) _hud?.ShowDecision(target); // 아직 그 방이면 대사 교체
+                Debug.Log($"[AI Director] {target}");
             }
         }
 

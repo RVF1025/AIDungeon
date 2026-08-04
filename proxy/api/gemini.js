@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 4000); // 4초 초과 → Unity 폴백
+  const timer = setTimeout(() => ctrl.abort(), 7000); // 7초 초과 → Unity 폴백 (대사는 비동기라 UX 지장 X)
 
   let g;
   try {
