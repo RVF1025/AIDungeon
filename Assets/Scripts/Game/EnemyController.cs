@@ -24,6 +24,11 @@ namespace AIDungeon.Game
         private float _diff = 1f;
         private const float ShieldHp = 70f;
 
+        // 근접 러시: 예비동작(멈칫) 후 빠른 돌진
+        private float _lungeCd, _windupTimer, _lungeTimer;
+        private Vector2 _lungeDir;
+        private const float LungeCooldown = 3f, LungeRange = 5f, WindupTime = 0.3f, LungeTime = 0.22f, LungeSpeed = 12f;
+
         private Rigidbody2D _rb;
         private Health _health;
         private HitReaction _hit;
@@ -157,12 +162,24 @@ namespace AIDungeon.Game
                 else if (dist > _preferredRange + 0.6f) desired = dir * _moveSpeed;
                 else desired = Vector2.Perpendicular(dir) * (_moveSpeed * 0.6f); // 스트레이핑
             }
+            else if (type == EnemyType.Tank)
+            {
+                desired = dir * _moveSpeed; // 탱커: 돌진
+            }
             else
             {
-                desired = dir * _moveSpeed; // Melee/Tank: 돌진
+                desired = MeleeMove(dir); // 근접: 러시 상태 반영
             }
 
             _rb.linearVelocity = AvoidObstacles(desired, toPlayer);
+        }
+
+        // 근접 러시 이동: 돌진 중이면 확정 방향으로 고속, 예비동작이면 멈칫, 아니면 평상시 추격.
+        private Vector2 MeleeMove(Vector2 dir)
+        {
+            if (_lungeTimer > 0f) return _lungeDir * LungeSpeed;
+            if (_windupTimer > 0f) return Vector2.zero;
+            return dir * _moveSpeed;
         }
 
         /// <summary>진행 방향에 벽/기둥(Solid)이 있으면 플레이어 쪽으로 비껴가게 조향(단순 회피).</summary>
@@ -204,30 +221,76 @@ namespace AIDungeon.Game
             _contactTimer -= Time.deltaTime;
             _shootTimer -= Time.deltaTime;
 
-            float dist = Vector2.Distance(_player.position, transform.position);
+            Vector2 toP = (Vector2)(_player.position - transform.position);
+            float dist = toP.magnitude;
+            Vector2 dir = dist > 0.001f ? toP / dist : Vector2.right;
 
             if (type == EnemyType.Ranged)
             {
                 if (dist <= _shootRange && _shootTimer <= 0f)
                 {
-                    _shootTimer = _shootCooldown;
-                    Vector2 dir = ((Vector2)(_player.position - transform.position)).normalized;
-                    var go = new GameObject("EnemyProjectile");
-                    go.transform.position = transform.position;
-                    go.AddComponent<Projectile>()
-                      .Launch(Team.Enemy, dir, _projSpeed, _projDamage, DamageType.Ranged,
-                              new Color(1f, 0.55f, 0.2f));
+                    if (Random.value < 0.35f) // 3발 산탄
+                    {
+                        _shootTimer = _shootCooldown * 1.5f;
+                        FireProjectile(Rotate(dir, -15f));
+                        FireProjectile(dir);
+                        FireProjectile(Rotate(dir, 15f));
+                    }
+                    else
+                    {
+                        _shootTimer = _shootCooldown;
+                        FireProjectile(dir);
+                    }
                 }
             }
             else
             {
+                if (type == EnemyType.Melee) UpdateLunge(dist, dir);
+
                 if (dist <= _contactRange && _contactTimer <= 0f)
                 {
                     _contactTimer = _contactCooldown;
-                    Vector2 d = ((Vector2)(_player.position - transform.position)).normalized;
-                    _playerHealth.TakeDamage(_contactDamage, d);
-                    Vfx.Spark(transform.position + (Vector3)(d * 0.6f), new Color(1f, 0.85f, 0.5f)); // 근접 스윙
+                    _playerHealth.TakeDamage(_contactDamage, dir);
+                    Vfx.Spark(transform.position + (Vector3)(dir * 0.6f), new Color(1f, 0.85f, 0.5f)); // 근접 스윙
                 }
+            }
+        }
+
+        private void FireProjectile(Vector2 dir)
+        {
+            var go = new GameObject("EnemyProjectile");
+            go.transform.position = transform.position;
+            go.AddComponent<Projectile>()
+              .Launch(Team.Enemy, dir, _projSpeed, _projDamage, DamageType.Ranged, new Color(1f, 0.55f, 0.2f));
+        }
+
+        private static Vector2 Rotate(Vector2 v, float deg)
+        {
+            float r = deg * Mathf.Deg2Rad, c = Mathf.Cos(r), s = Mathf.Sin(r);
+            return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
+        }
+
+        // 근접 러시 상태기계: 쿨 지나면 예비동작 → 방향 확정 후 돌진.
+        private void UpdateLunge(float dist, Vector2 dir)
+        {
+            _lungeCd -= Time.deltaTime;
+            if (_lungeTimer > 0f) { _lungeTimer -= Time.deltaTime; return; } // 돌진 중
+            if (_windupTimer > 0f)
+            {
+                _windupTimer -= Time.deltaTime;
+                if (_windupTimer <= 0f)
+                {
+                    _lungeTimer = LungeTime;
+                    _lungeDir = dir; // 예비동작 끝 시점 방향으로 확정(사이드스텝으로 회피 가능)
+                    Vfx.Spark(transform.position, new Color(1f, 0.9f, 0.3f));
+                }
+                return;
+            }
+            if (_lungeCd <= 0f && dist > _contactRange && dist < LungeRange)
+            {
+                _windupTimer = WindupTime;
+                _lungeCd = LungeCooldown;
+                Vfx.Spark(transform.position, new Color(1f, 0.5f, 0.2f)); // 예비동작 신호
             }
         }
     }
