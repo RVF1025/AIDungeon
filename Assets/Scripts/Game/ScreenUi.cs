@@ -29,14 +29,14 @@ namespace AIDungeon.Game
             return c;
         }
 
-        public static TextMeshProUGUI Label(Transform parent, string text, float size, Vector2 pos)
+        public static TextMeshProUGUI Label(Transform parent, string text, float size, Vector2 pos, float width = 1700f)
         {
             var go = new GameObject("Label", typeof(RectTransform));
             go.transform.SetParent(parent, false);
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(1700, size * 1.6f);
+            rt.sizeDelta = new Vector2(width, size * 1.6f);
             var t = go.AddComponent<TextMeshProUGUI>();
             var f = UiFont.Korean();
             if (f != null) t.font = f;

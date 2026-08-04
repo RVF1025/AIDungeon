@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using AIDungeon.Director;
@@ -18,6 +19,7 @@ namespace AIDungeon.Game
         private Health _playerHealth;
         private Rigidbody2D _playerRb;
         private DirectorHud _hud;
+        private PathSelectUI _select;
 
         private int _floor = 1;
         private string _phase = "";
@@ -29,6 +31,7 @@ namespace AIDungeon.Game
             _spawner = spawner; _client = client; _logger = logger;
             _playerHealth = playerHealth; _hud = hud;
             _playerRb = playerHealth.GetComponent<Rigidbody2D>();
+            _select = gameObject.AddComponent<PathSelectUI>();
             StartCoroutine(RunGame());
         }
 
@@ -50,39 +53,73 @@ namespace AIDungeon.Game
 
             while (true) // 무한 — 사망 시에만 종료
             {
-                // 이 층의 방을 새 위치에 생성(topology 반영) → 플레이어 이동
-                if (_room != null) Destroy(_room.root);
-                _room = RoomBuilder.Build(current, _floor);
-                TeleportPlayer(_room.playerSpawn);
-                CameraFollow.Instance?.Snap();
-                _spawner.Configure(_room.center, _room.half);
-
-                _logger.ResetFloor();
-                _spawner.SpawnWave(current, EnemyCount(_floor));
-                _phase = $"{_floor}층 — 전투";
-                yield return null; // 스폰 반영 대기
-
-                while (EnemyController.Active.Count > 0)
-                {
-                    if (_playerHealth.IsDead) { EndGame(); yield break; }
-                    yield return null;
-                }
+                // === 전투 페이즈 ===
+                yield return RunCombat(current);
                 if (_playerHealth.IsDead) { EndGame(); yield break; }
 
-                // --- 층 전환: 프로파일 수집 → AI 판단(다음 층 설계) ---
-                _phase = "AI Director 분석 중...";
+                // === 전환: AI를 백그라운드로 돌리고(선택하는 동안 레이턴시 은폐) 갈림길 제시 ===
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
-                yield return new WaitForSeconds(1.2f); // 암전 자리(연출은 4장에서 확장)
 
-                DirectorDecision next = null;
-                yield return _client.RequestDecision(profile, _floor + 1, d => next = d);
-                current = next ?? FallbackPresets.Build(profile);
+                DirectorDecision next = null; bool aiReady = false;
+                StartCoroutine(_client.RequestDecision(profile, _floor + 1, d => { next = d; aiReady = true; }));
+
+                var options = BuildOptions();
+                int idx = 0;
+                _phase = "갈림길 선택";
+                yield return _select.Choose(options, "다음 갈림길을 고르시오.", i => idx = i);
+
+                while (!aiReady) yield return null; // 아직이면 잠깐 대기(폴백 타임아웃 내)
+                var decision = next ?? FallbackPresets.Build(profile);
+
+                // === 선택 결과 적용 (스켈레톤: 전투/정예/휴식) ===
+                switch (options[idx].kind)
+                {
+                    case PathKind.Rest:
+                        _playerHealth.Heal(_playerHealth.maxHp * 0.4f);
+                        break;
+                    case PathKind.Elite:
+                        decision.difficultyModifier = Mathf.Clamp(decision.difficultyModifier * 1.3f, 0.8f, 1.6f);
+                        break;
+                }
+
+                current = decision;
                 _hud?.ShowDecision(current);
                 Debug.Log($"[AI Director] {current}");
-
                 _floor++;
             }
+        }
+
+        // 한 전투 방: 생성 → 이동 → 스폰 → 전멸 대기 (사망 시 즉시 반환)
+        private IEnumerator RunCombat(DirectorDecision decision)
+        {
+            if (_room != null) Destroy(_room.root);
+            _room = RoomBuilder.Build(decision, _floor);
+            TeleportPlayer(_room.playerSpawn);
+            CameraFollow.Instance?.Snap();
+            _spawner.Configure(_room.center, _room.half);
+
+            _logger.ResetFloor();
+            _spawner.SpawnWave(decision, EnemyCount(_floor));
+            _phase = $"{_floor}층 — 전투";
+            yield return null;
+
+            while (EnemyController.Active.Count > 0)
+            {
+                if (_playerHealth.IsDead) yield break;
+                yield return null;
+            }
+        }
+
+        // 갈림길 후보 (스켈레톤: 전투/정예/휴식. 확장: 보물·이벤트·상점, AI 개입)
+        private List<PathOption> BuildOptions()
+        {
+            return new List<PathOption>
+            {
+                new PathOption { kind = PathKind.Combat, title = "전투",     desc = "평범한 다음 방" },
+                new PathOption { kind = PathKind.Elite,  title = "정예 전투", desc = "더 강한 적 (난이도↑)" },
+                new PathOption { kind = PathKind.Rest,   title = "휴식",     desc = "체력 40% 회복" },
+            };
         }
 
         private void TeleportPlayer(Vector2 pos)

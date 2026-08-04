@@ -30,6 +30,12 @@ namespace AIDungeon.Game
             if (CurrentHp <= 0 && !IsDead) CurrentHp = maxHp;
         }
 
+        public void Heal(float amount)
+        {
+            if (IsDead) return;
+            CurrentHp = Mathf.Min(maxHp, CurrentHp + amount);
+        }
+
         /// <summary>데미지 적용. 죽으면 true. hitDir은 넉백/이펙트 방향(공격자→대상).</summary>
         public bool TakeDamage(float amount, Vector2 hitDir = default)
         {
