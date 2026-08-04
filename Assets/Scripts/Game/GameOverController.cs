@@ -20,12 +20,10 @@ namespace AIDungeon.Game
         private void Update()
         {
             var kb = Keyboard.current;
-            bool retry = (kb != null && kb.rKey.wasPressedThisFrame)
-                         || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame);
-            bool toTitle = kb != null && kb.escapeKey.wasPressedThisFrame;
+            if (kb == null) return;
 
-            if (retry) SceneManager.LoadScene(GameSession.SceneGame);
-            else if (toTitle) SceneManager.LoadScene(GameSession.SceneTitle);
+            if (kb.rKey.wasPressedThisFrame) SceneManager.LoadScene(GameSession.SceneGame);
+            else if (kb.escapeKey.wasPressedThisFrame) SceneManager.LoadScene(GameSession.SceneTitle);
         }
 
         private static void EnsureCamera()
