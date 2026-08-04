@@ -27,7 +27,7 @@ namespace AIDungeon.Director
 
         [Header("동작")]
         [Tooltip("초과 시 폴백. 대사는 백그라운드로 받으니 넉넉해도 게임 안 멈춤.")]
-        public float timeoutSeconds = 8f;
+        public float timeoutSeconds = 12f;
 
         [Range(0f, 1f)] public float temperature = 0.6f;
 
