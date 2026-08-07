@@ -21,6 +21,7 @@ namespace AIDungeon.Game
         private float _preferredRange, _shootRange, _projDamage, _shootCooldown, _projSpeed;
         private float _contactTimer, _shootTimer;
         private Transform _shield; // 탱커가 플레이어를 향해 드는 방패(부술 수 있음)
+        private Transform _weapon; // 원거리몹이 드는 지팡이(시각)
         private float _diff = 1f;
         private const float ShieldHp = 70f;
 
@@ -56,6 +57,7 @@ namespace AIDungeon.Game
             _health.OnDeath += _ =>
             {
                 if (_shield != null) Destroy(_shield.gameObject); // 본체 죽으면 방패도 제거
+                if (_weapon != null) Destroy(_weapon.gameObject);
                 Destroy(gameObject);
             };
 
@@ -91,6 +93,19 @@ namespace AIDungeon.Game
             if (_sr != null) _sr.color = RealColor;
             Vfx.Spark(transform.position, RealColor); // 등장 순간 팟
             if (type == EnemyType.Tank) CreateShield();
+            if (type == EnemyType.Ranged) CreateWeapon();
+        }
+
+        private void CreateWeapon()
+        {
+            var go = new GameObject("Weapon");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = SpriteFactory.Tile(130); // 지팡이
+            sr.color = Color.white;
+            sr.sortingOrder = 3; // 몸통 위
+            float s = SpriteFactory.ScaleFor(sr.sprite, 0.6f);
+            go.transform.localScale = new Vector3(s, s, 1f);
+            _weapon = go.transform;
         }
 
         private void CreateShield()
@@ -127,16 +142,24 @@ namespace AIDungeon.Game
             _shield = go.transform;
         }
 
-        // 방패가 항상 플레이어를 향하도록(넓은 면이 플레이어 쪽) 정렬.
+        // 방패·지팡이를 플레이어 쪽에 배치(회전 없이 항상 세워둠 → 아래는 아래).
         private void LateUpdate()
         {
-            if (_shield == null || _player == null) return;
+            if (_player == null) return;
             Vector2 toP = (Vector2)(_player.position - transform.position);
             if (toP.sqrMagnitude < 0.0001f) return;
-            toP.Normalize();
-            _shield.position = transform.position + (Vector3)(toP * 0.6f);
-            float ang = Mathf.Atan2(toP.y, toP.x) * Mathf.Rad2Deg;
-            _shield.rotation = Quaternion.Euler(0, 0, ang - 90f); // local up(+y, 넓은 면)이 플레이어를 향함
+            Vector2 dir = toP.normalized;
+
+            if (_shield != null)
+            {
+                _shield.position = transform.position + (Vector3)(dir * 0.6f);
+                _shield.rotation = Quaternion.identity; // 세워둠
+            }
+            if (_weapon != null)
+            {
+                float side = toP.x >= 0f ? 1f : -1f; // 플레이어 쪽 손에
+                _weapon.position = transform.position + new Vector3(side * 0.35f, -0.05f, 0f);
+            }
         }
 
         private void FixedUpdate()

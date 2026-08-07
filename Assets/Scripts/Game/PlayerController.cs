@@ -46,7 +46,7 @@ namespace AIDungeon.Game
         {
             var go = new GameObject("Crosshair");
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Tile(101); // 조준 사각형
+            sr.sprite = SpriteFactory.Tile(60); // 조준점
             sr.color = new Color(1f, 1f, 1f, 0.9f);
             sr.sortingOrder = 20;
             float s = SpriteFactory.ScaleFor(sr.sprite, 0.7f);
