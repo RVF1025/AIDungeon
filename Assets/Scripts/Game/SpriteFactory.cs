@@ -25,6 +25,25 @@ namespace AIDungeon.Game
             return s;
         }
 
+        /// <summary>Kenney Tiny Dungeon 타일 스프라이트 로드(Resources). index → tile_XXXX.png</summary>
+        public static Sprite Tile(int index)
+        {
+            string key = "t" + index;
+            if (_cache.TryGetValue(key, out var s)) return s;
+            s = Resources.Load<Sprite>($"kenney_tiny-dungeon/Tiles/tile_{index:0000}");
+            if (s == null) Debug.LogWarning($"[SpriteFactory] tile_{index:0000} 로드 실패");
+            _cache[key] = s;
+            return s;
+        }
+
+        /// <summary>스프라이트 실제 크기 기준으로 원하는 월드 높이에 맞춰 스케일(PPU 무관).</summary>
+        public static float ScaleFor(Sprite sprite, float worldHeight)
+        {
+            if (sprite == null) return 1f;
+            float h = sprite.bounds.size.y;
+            return h > 0.0001f ? worldHeight / h : 1f;
+        }
+
         public static Sprite Circle()
         {
             if (_cache.TryGetValue("ci", out var s)) return s;

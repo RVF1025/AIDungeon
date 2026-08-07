@@ -137,21 +137,23 @@ namespace AIDungeon.Game
             var go = new GameObject($"Enemy_{type}");
             go.transform.position = pos;
 
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Circle();
-            sr.sortingOrder = 2;
-            float scale; float baseHp; Color col;
+            int tile; float baseHp;
             switch (type)
             {
-                case EnemyType.Melee: col = new Color(0.9f, 0.3f, 0.3f); scale = 0.8f; baseHp = 40f; break;
-                case EnemyType.Ranged: col = new Color(1f, 0.75f, 0.2f); scale = 0.7f; baseHp = 30f; break;
-                default: col = new Color(0.6f, 0.2f, 0.5f); scale = 0.8f; baseHp = 60f; break; // Tank(방패로 버팀 → 본체 HP 낮음)
+                case EnemyType.Melee: tile = 122; baseHp = 40f; break; // 거미
+                case EnemyType.Ranged: tile = 84; baseHp = 30f; break; // 마법사
+                default: tile = 96; baseHp = 60f; break;               // 기사(탱커, 방패로 버팀 → 본체 HP 낮음)
             }
-            sr.color = col;
-            go.transform.localScale = Vector3.one * scale;
+
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = SpriteFactory.Tile(tile);
+            sr.color = Color.white;
+            sr.sortingOrder = 2;
+            float scale = SpriteFactory.ScaleFor(sr.sprite, 1.0f);
+            go.transform.localScale = new Vector3(scale, scale, 1f);
 
             var col2d = go.AddComponent<CircleCollider2D>();
-            col2d.radius = 0.5f;
+            col2d.radius = 0.35f / scale;
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
             rb.freezeRotation = true;

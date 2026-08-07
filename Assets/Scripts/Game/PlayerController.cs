@@ -27,6 +27,8 @@ namespace AIDungeon.Game
 
         private Rigidbody2D _rb;
         private Health _health;
+        private SpriteRenderer _sr;
+        private Transform _crosshair;
         private float _meleeTimer, _rangedTimer;
         private Camera _cam;
 
@@ -34,19 +36,49 @@ namespace AIDungeon.Game
         {
             _rb = GetComponent<Rigidbody2D>();
             _health = GetComponent<Health>();
+            _sr = GetComponent<SpriteRenderer>();
             _cam = Camera.main;
+            Cursor.visible = false; // 크로스헤어로 대체
+            CreateCrosshair();
+        }
+
+        private void CreateCrosshair()
+        {
+            var go = new GameObject("Crosshair");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = SpriteFactory.Tile(101); // 조준 사각형
+            sr.color = new Color(1f, 1f, 1f, 0.9f);
+            sr.sortingOrder = 20;
+            float s = SpriteFactory.ScaleFor(sr.sprite, 0.7f);
+            go.transform.localScale = new Vector3(s, s, 1f);
+            _crosshair = go.transform;
         }
 
         private void Update()
         {
             _meleeTimer -= Time.deltaTime;
             _rangedTimer -= Time.deltaTime;
-            if (_health.IsDead) return;
 
             var mouse = Mouse.current;
-            if (mouse == null) return;
-            if (mouse.leftButton.isPressed && _meleeTimer <= 0f) DoMelee();
-            if (mouse.rightButton.isPressed && _rangedTimer <= 0f) DoRanged();
+            if (mouse != null && _crosshair != null)
+            {
+                if (_cam == null) _cam = Camera.main;
+                Vector2 sp = mouse.position.ReadValue();
+                Vector3 m = _cam.ScreenToWorldPoint(new Vector3(sp.x, sp.y, 0f));
+                m.z = 0f;
+                _crosshair.position = m;
+            }
+
+            if (_health.IsDead) return;
+
+            Vector2 aim = AimDir();
+            if (_sr != null && Mathf.Abs(aim.x) > 0.05f) _sr.flipX = aim.x < 0f; // 조준 방향으로 좌우
+
+            if (mouse != null)
+            {
+                if (mouse.leftButton.isPressed && _meleeTimer <= 0f) DoMelee();
+                if (mouse.rightButton.isPressed && _rangedTimer <= 0f) DoRanged();
+            }
         }
 
         private void FixedUpdate()

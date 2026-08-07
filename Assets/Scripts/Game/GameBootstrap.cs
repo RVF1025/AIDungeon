@@ -51,15 +51,16 @@ namespace AIDungeon.Game
         {
             var go = new GameObject("Player");
             go.transform.position = Vector3.zero;
-            go.transform.localScale = Vector3.one * 0.8f;
 
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square();
-            sr.color = new Color(0.4f, 0.9f, 1f);
+            sr.sprite = SpriteFactory.Tile(98); // 모험가
+            sr.color = Color.white;
             sr.sortingOrder = 3;
+            float scale = SpriteFactory.ScaleFor(sr.sprite, 1.1f);
+            go.transform.localScale = new Vector3(scale, scale, 1f);
 
             var col = go.AddComponent<CircleCollider2D>();
-            col.radius = 0.5f;
+            col.radius = 0.35f / scale; // 월드 반경 ~0.35
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
             rb.freezeRotation = true;

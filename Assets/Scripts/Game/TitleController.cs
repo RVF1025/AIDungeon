@@ -13,6 +13,7 @@ namespace AIDungeon.Game
 
         private void Start()
         {
+            Cursor.visible = true;
             EnsureCamera();
             var c = ScreenUi.BuildCanvas("TitleCanvas");
             ScreenUi.Label(c.transform, "AI DUNGEON", 120f, new Vector2(0, 130));

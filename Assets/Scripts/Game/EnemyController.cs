@@ -97,13 +97,15 @@ namespace AIDungeon.Game
         {
             // 독립 오브젝트(자식 X: 중첩 리지드바디 방지). LateUpdate가 플레이어 향해 배치.
             var go = new GameObject("Shield");
-            go.transform.localScale = new Vector3(1.6f, 0.35f, 1f); // 넓고 얇은 직사각형
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square();
-            sr.color = new Color(0.78f, 0.8f, 0.88f); // 강철색
+            sr.sprite = SpriteFactory.Tile(102); // Kenney 방패
+            sr.color = Color.white;
             sr.sortingOrder = 3; // 몸통(2) 위
+            float ss = SpriteFactory.ScaleFor(sr.sprite, 0.9f);
+            go.transform.localScale = new Vector3(ss, ss, 1f);
 
             var col = go.AddComponent<BoxCollider2D>();
+            col.size = sr.sprite.bounds.size; // 스프라이트 크기에 맞춤(로컬)
             col.isTrigger = true; // 히트박스(공격 판정용), 물리 밀침 없음
             var rb = go.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic; // 매 프레임 이동하는 콜라이더
@@ -224,6 +226,8 @@ namespace AIDungeon.Game
             Vector2 toP = (Vector2)(_player.position - transform.position);
             float dist = toP.magnitude;
             Vector2 dir = dist > 0.001f ? toP / dist : Vector2.right;
+
+            if (_sr != null) _sr.flipX = toP.x < 0f; // 플레이어 향해 좌우
 
             if (type == EnemyType.Ranged)
             {

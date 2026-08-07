@@ -9,6 +9,7 @@ namespace AIDungeon.Game
     {
         private void Start()
         {
+            Cursor.visible = true;
             EnsureCamera();
             var c = ScreenUi.BuildCanvas("GameOverCanvas");
             var title = ScreenUi.Label(c.transform, "GAME OVER", 110f, new Vector2(0, 150));
