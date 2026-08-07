@@ -25,6 +25,8 @@ namespace AIDungeon.Game
         private string _phase = "";
         private Room _room;
         private DirectorDecision _current;
+        private LoadingScreen _loading;
+        private const float MinLoadSeconds = 1.2f;
 
         public void Begin(EnemySpawner spawner, GeminiDirectorClient client,
                           BehaviorLogger logger, Health playerHealth, DirectorHud hud)
@@ -72,9 +74,11 @@ namespace AIDungeon.Game
                 _phase = "갈림길 선택";
                 yield return _select.Choose(options, "다음 갈림길을 고르시오.", i => idx = i);
 
-                // === 대사가 올 때까지 대기한 뒤 그 방을 띄운다 ===
+                // === 로딩 화면 표시 + 대사 대기(최소 표시시간 보장, 방은 RunCombat에서 준비되면 해제) ===
                 _phase = "AI Director 분석 중...";
-                while (!ready) yield return null;
+                if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
+                float t0 = Time.time;
+                while (!ready || Time.time - t0 < MinLoadSeconds) yield return null;
                 var decision = res ?? FallbackPresets.Build(profile);
 
                 switch (options[idx].kind)
@@ -106,7 +110,9 @@ namespace AIDungeon.Game
             _logger.ResetFloor();
             _spawner.SpawnWave(decision, EnemyCount(_floor));
             _phase = $"{_floor}층 — 전투";
-            yield return null;
+            yield return null; // 스폰 반영
+
+            if (_loading != null) { Destroy(_loading.gameObject); _loading = null; } // 방 준비됐으니 로딩 해제
 
             while (EnemyController.Active.Count > 0)
             {
