@@ -46,10 +46,10 @@ namespace AIDungeon.Game
         {
             var go = new GameObject("Crosshair");
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Tile(60); // 조준점
-            sr.color = new Color(1f, 1f, 1f, 0.9f);
+            sr.sprite = SpriteFactory.Crosshair(); // 코드 생성 레티클
+            sr.color = new Color(0.5f, 1f, 0.9f, 0.9f); // 시안
             sr.sortingOrder = 20;
-            float s = SpriteFactory.ScaleFor(sr.sprite, 0.7f);
+            float s = SpriteFactory.ScaleFor(sr.sprite, 0.6f);
             go.transform.localScale = new Vector3(s, s, 1f);
             _crosshair = go.transform;
         }
