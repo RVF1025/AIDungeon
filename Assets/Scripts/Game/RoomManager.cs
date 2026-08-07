@@ -60,14 +60,17 @@ namespace AIDungeon.Game
                 yield return RunCombat(_current);
                 if (_playerHealth.IsDead) { EndGame(); yield break; }
 
-                // === 갈림길 선택 ===
+                // === 클리어 → AI 선요청 → 클리어 배너(2초) → 갈림길 선택 ===
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
 
-                // 선택하는 동안 AI 요청을 미리 시작(대기 시간 일부 은폐)
+                // 클리어 순간부터 AI 요청 시작(배너+선택 동안 레이턴시 은폐)
                 int nextFloor = _floor + 1;
                 DirectorDecision res = null; bool ready = false;
                 StartCoroutine(_client.RequestDecision(profile, nextFloor, d => { res = d; ready = true; }));
+
+                _phase = $"{_floor}층 클리어!";
+                yield return ShowClearBanner();
 
                 var options = BuildOptions();
                 int idx = 0;
@@ -119,6 +122,18 @@ namespace AIDungeon.Game
                 if (_playerHealth.IsDead) yield break;
                 yield return null;
             }
+        }
+
+        // 스테이지 클리어 배너 2초 (방을 살짝만 어둡게 → 전장이 보임)
+        private IEnumerator ShowClearBanner()
+        {
+            var canvas = ScreenUi.BuildCanvas("ClearCanvas", 0.4f);
+            canvas.sortingOrder = 250;
+            var t = ScreenUi.Label(canvas.transform, $"{_floor}층 클리어!", 96f, new Vector2(0, 30));
+            t.color = new Color(0.5f, 1f, 0.75f);
+            ScreenUi.Label(canvas.transform, "적을 모두 처치했습니다", 34f, new Vector2(0, -60));
+            yield return new WaitForSeconds(2f);
+            Destroy(canvas.gameObject);
         }
 
         // 갈림길 후보 (스켈레톤: 전투/정예/휴식. 확장: 보물·이벤트·상점, AI 개입)

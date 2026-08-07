@@ -7,7 +7,7 @@ namespace AIDungeon.Game
     /// <summary>타이틀/게임오버용 풀스크린 캔버스 + 중앙 정렬 라벨을 코드로 생성.</summary>
     public static class ScreenUi
     {
-        public static Canvas BuildCanvas(string name)
+        public static Canvas BuildCanvas(string name, float bgAlpha = 1f)
         {
             var go = new GameObject(name);
             var c = go.AddComponent<Canvas>();
@@ -25,7 +25,7 @@ namespace AIDungeon.Game
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
             rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
             var img = bg.AddComponent<Image>();
-            img.color = new Color(0.05f, 0.05f, 0.09f, 1f);
+            img.color = new Color(0.05f, 0.05f, 0.09f, bgAlpha);
             return c;
         }
 
