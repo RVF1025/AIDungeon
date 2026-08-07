@@ -44,33 +44,6 @@ namespace AIDungeon.Game
             return h > 0.0001f ? worldHeight / h : 1f;
         }
 
-        /// <summary>조준용 레티클(원 테두리 + 십자 눈금 + 중앙 점)을 코드로 생성.</summary>
-        public static Sprite Crosshair()
-        {
-            if (_cache.TryGetValue("xh", out var s)) return s;
-            const int R = 32; float c = (R - 1) / 2f;
-            var tex = new Texture2D(R, R, TextureFormat.RGBA32, false);
-            var px = new Color[R * R];
-            float inner = 9f, outer = 12f;
-            for (int y = 0; y < R; y++)
-                for (int x = 0; x < R; x++)
-                {
-                    float dx = x - c, dy = y - c;
-                    float d = Mathf.Sqrt(dx * dx + dy * dy);
-                    bool ring = d >= inner && d <= outer;
-                    bool center = d <= 1.4f;
-                    bool tick = (Mathf.Abs(dx) <= 0.9f && d >= inner - 3f && d <= outer + 3f)
-                             || (Mathf.Abs(dy) <= 0.9f && d >= inner - 3f && d <= outer + 3f);
-                    px[y * R + x] = (ring || center || tick) ? Color.white : Color.clear;
-                }
-            tex.SetPixels(px);
-            tex.filterMode = FilterMode.Bilinear;
-            tex.Apply();
-            s = Sprite.Create(tex, new Rect(0, 0, R, R), new Vector2(0.5f, 0.5f), R);
-            _cache["xh"] = s;
-            return s;
-        }
-
         public static Sprite Circle()
         {
             if (_cache.TryGetValue("ci", out var s)) return s;
