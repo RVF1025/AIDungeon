@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using UnityEngine;
@@ -130,7 +131,7 @@ namespace AIDungeon.Director
 
                     // 대사는 공간/지형을 일절 언급하지 않는 정책. 방 형태 단어가 새어 나오면
                     // (LLM이 지시를 어긴 것) 같은 톤 페르소나 대사로 조용히 교체.
-                    if (MentionsSpace(decision.analysis))
+                    if (DirectorPolicy.MentionsSpace(decision.analysis))
                     {
                         Debug.LogWarning($"[AIDirector] 공간어 언급 감지 → 페르소나 대사로 교체. \"{decision.analysis}\"");
                         decision.analysis = persona.Fallback(decision.tone);
@@ -141,19 +142,114 @@ namespace AIDungeon.Director
             }
         }
 
-        // 대사에 방/지형/위치 단어가 하나라도 있으면 true(정책상 공간 언급 전면 금지).
-        // topology는 실제 방으로 이미 보이므로 대사가 묘사할 필요가 없다 → 모순 원천 차단.
-        private static readonly string[] SpaceWords =
+        // === 갈림길 설계(AI가 유형 풀에서 상황·성향에 맞게 2~3개 선택 + 성향 말투 저작) ===
+
+        private const string ForkSystemInstruction =
+            "당신은 탑다운 2D 로그라이크의 AI 던전 디렉터입니다. 스테이지 클리어 후 플레이어에게 제시할 " +
+            "갈림길 선택지를 설계하세요. 주어진 '유형 목록' 중 현재 플레이어 상태와 당신의 성격에 어울리는 " +
+            "2~3개를 고르고, 각 선택지의 title(짧은 이름), desc(한 줄 설명), line(플레이어가 그 길을 고른 순간 " +
+            "던질 당신의 한마디), tone을 모두 당신 말투로 작성합니다. " +
+            "규칙: id는 반드시 유형 목록의 것만. 같은 id 중복 금지. 방·지형·위치·공간은 일절 언급 금지. " +
+            "성격을 선택에 반영하라(예: 잔혹하면 고난이도를, 짓궂으면 예측불가한 조합을, 우아하면 균형 잡힌 구성을). " +
+            "title/desc/line은 각각 짧고 간결하게(title은 8자 이내, line은 공백 포함 40자 이내). " +
+            "특수문자·이모지·말줄임표(…)·따옴표 사용 금지, 한글과 기본 문장부호만 사용.";
+
+        private static string ForkResponseSchema()
         {
-            "통로", "복도", "개활", "광야", "벌판", "엄폐", "기둥", "차폐", "은폐",
-            "포위", "에워", "둘러싸", "틈새", "탁 트", "코너",
-        };
-        private static bool MentionsSpace(string analysis)
+            return
+                "{\"type\":\"OBJECT\",\"properties\":{\"options\":{\"type\":\"ARRAY\",\"minItems\":2,\"maxItems\":3," +
+                "\"items\":{\"type\":\"OBJECT\",\"properties\":{" +
+                "\"id\":{\"type\":\"STRING\",\"enum\":[" + ForkArchetypes.IdEnumJson() + "]}," +
+                "\"title\":{\"type\":\"STRING\"},\"desc\":{\"type\":\"STRING\"},\"line\":{\"type\":\"STRING\"}," +
+                "\"tone\":{\"type\":\"STRING\",\"enum\":[\"taunt\",\"impressed\",\"concern\",\"neutral\"]}}," +
+                "\"required\":[\"id\",\"title\",\"desc\",\"line\",\"tone\"]," +
+                "\"propertyOrdering\":[\"id\",\"title\",\"desc\",\"line\",\"tone\"]}}}," +
+                "\"required\":[\"options\"]}";
+        }
+
+        /// <summary>
+        /// 갈림길 선택지를 AI에게 설계 요청. 실패/무효 시 항상 코드 기본 3종으로 콜백(게임 안 멈춤).
+        /// 수치(난이도/적수/회복)는 id에 매핑된 ForkArchetype이 소유 → AI는 선택+연출만.
+        /// </summary>
+        public IEnumerator RequestForkOptions(PlayerProfile profile, DirectorPersona persona,
+                                              Action<List<ForkChoice>> onResult)
         {
-            if (string.IsNullOrEmpty(analysis)) return false;
-            foreach (var w in SpaceWords)
-                if (analysis.Contains(w)) return true;
-            return false;
+            string url = proxyUrl;
+            if (!string.IsNullOrEmpty(modelOverride))
+                url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
+
+            byte[] payload = Encoding.UTF8.GetBytes(BuildForkRequestBody(profile, persona.voice));
+
+            using (var req = new UnityWebRequest(url, "POST"))
+            {
+                req.uploadHandler = new UploadHandlerRaw(payload);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.timeout = Mathf.CeilToInt(timeoutSeconds);
+
+                yield return req.SendWebRequest();
+
+                List<ForkChoice> choices = null;
+                if (req.result == UnityWebRequest.Result.Success)
+                    choices = ParseForkChoices(req.downloadHandler.text, profile, persona);
+                else
+                    Debug.LogWarning($"[AIDirector] 갈림길 요청 실패({req.result}) → 기본 선택지. {req.error}");
+
+                onResult?.Invoke(choices ?? ForkArchetypes.DefaultChoices());
+            }
+        }
+
+        [Serializable] private class ForkDto { public string id, title, desc, line, tone; }
+        [Serializable] private class ForkListDto { public ForkDto[] options; }
+
+        private List<ForkChoice> ParseForkChoices(string json, PlayerProfile profile, DirectorPersona persona)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            ForkListDto dto;
+            try { dto = JsonUtility.FromJson<ForkListDto>(json); }
+            catch (Exception e) { Debug.LogWarning($"[AIDirector] 갈림길 파싱 예외: {e.Message}"); return null; }
+            if (dto?.options == null || dto.options.Length < 2) return null;
+
+            var seen = new HashSet<string>();
+            var list = new List<ForkChoice>(3);
+            foreach (var o in dto.options)
+            {
+                if (o == null || !ForkArchetypes.IsValidId(o.id) || !seen.Add(o.id)) continue; // 무효/중복 id 제거
+                string tone = DirectorPolicy.IsValidTone(o.tone) ? o.tone : Tone.Neutral;
+                // 갈림길 대사도 공간 언급 금지 정책 적용(어기면 성향 대사로 교체).
+                string line = string.IsNullOrWhiteSpace(o.line) || DirectorPolicy.MentionsSpace(o.line)
+                    ? persona.Fallback(tone) : o.line.Trim();
+                var arch = ForkArchetypes.ById(o.id);
+                list.Add(new ForkChoice
+                {
+                    id = o.id,
+                    title = string.IsNullOrWhiteSpace(o.title) ? arch.title : o.title.Trim(),
+                    desc = string.IsNullOrWhiteSpace(o.desc) ? arch.desc : o.desc.Trim(),
+                    line = line,
+                    tone = tone,
+                });
+                if (list.Count >= 3) break;
+            }
+            return list.Count >= 2 ? list : null;
+        }
+
+        private string BuildForkRequestBody(PlayerProfile p, string voice)
+        {
+            string userText =
+                $"{p.ToPromptLine()} | 유형 목록: {ForkArchetypes.Menu()} | " +
+                "위 유형 중 2~3개를 골라 선택지를 설계하라.";
+
+            var sb = new StringBuilder(1024);
+            sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
+            AppendJsonString(sb, ForkSystemInstruction + " " + voice);
+            sb.Append("}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":");
+            AppendJsonString(sb, userText);
+            sb.Append("}]}],\"generationConfig\":{\"responseMimeType\":\"application/json\",\"responseSchema\":");
+            sb.Append(ForkResponseSchema());
+            sb.Append(",\"temperature\":");
+            sb.Append(temperature.ToString("0.0", CultureInfo.InvariantCulture));
+            sb.Append("}}");
+            return sb.ToString();
         }
 
         // composition별 대사 초점. 특히 balanced는 특정 전술 우위(거리/접근/미끼) 주장을 금지하고

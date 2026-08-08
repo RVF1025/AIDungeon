@@ -10,12 +10,18 @@ namespace AIDungeon.Game
 {
     public enum PathKind { Combat, Elite, Rest }
 
-    /// <summary>갈림길 노드 한 개. (확장: 보물/이벤트/상점, AI가 desc·구성에 개입)</summary>
+    /// <summary>
+    /// 갈림길 노드 한 개. AI가 유형(archetypeId)을 골라 title/desc/line/tone을 성향 말투로 저작한다.
+    /// 수치(난이도/적수/회복)는 archetypeId에 매핑된 ForkArchetype이 소유(코드).
+    /// </summary>
     public class PathOption
     {
-        public PathKind kind;
+        public PathKind kind;         // 카드 색상용(레거시)
+        public string archetypeId;    // ForkArchetypes 풀의 유형 id
         public string title;
         public string desc;
+        public string line;           // 선택 시 진입 대사(AI 저작)
+        public string tone;           // 진입 대사 톤(초상 표정)
     }
 
     /// <summary>

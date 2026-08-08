@@ -26,6 +26,7 @@ namespace AIDungeon.Game
         private string _phase = "";
         private Room _room;
         private DirectorDecision _current;
+        private ForkArchetype _arch = ForkArchetypes.Normal; // 이번 층 갈림길 유형(적수/회복 등)
         private string _lastComp = "", _lastTopo = ""; // 직전 층(변화 보장용)
         private LoadingScreen _loading;
         private const float MinLoadSeconds = 2.4f;
@@ -67,49 +68,58 @@ namespace AIDungeon.Game
                 yield return RunCombat(_current);
                 if (_playerHealth.IsDead) { EndGame(); yield break; }
 
-                // === 클리어 → AI 선요청 → 클리어 배너(2초) → 갈림길 선택 ===
+                // === 클리어 → AI가 갈림길 설계 → 배너(2초) → 선택 → 코드가 수치 구성 ===
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
 
-                // 클리어 순간부터 '선택지별' AI 대사를 병렬 선요청(고르는 즉시 대기 없이 사용).
-                // 정예 전투는 상향된 난이도를 미리 반영해 요청 → 대사가 정예 등장을 정확히 반영.
                 int nextFloor = _floor + 1;
-                var options = BuildOptions();
-                var results = new DirectorDecision[options.Count];
-                var ready = new bool[options.Count];
-                float baseDiff = DirectorPolicy.CanonicalDifficulty(profile);
-                for (int i = 0; i < options.Count; i++)
-                {
-                    int oi = i;
-                    float diffOv = options[i].kind == PathKind.Elite
-                        ? Mathf.Clamp(baseDiff * 1.3f, DirectorPolicy.EliteDiffThreshold, 1.6f)
-                        : float.NaN; // 일반/휴식은 표준 난이도
-                    StartCoroutine(_client.RequestDecision(profile, nextFloor, _lastComp, _lastTopo, _persona,
-                        d => { results[oi] = d; ready[oi] = true; }, diffOv));
-                }
+
+                // 클리어 순간부터 AI가 갈림길 선택지를 설계(유형 선택 + 성향 말투). 실패 시 기본 3종.
+                List<ForkChoice> choices = null; bool forkReady = false;
+                StartCoroutine(_client.RequestForkOptions(profile, _persona, c => { choices = c; forkReady = true; }));
 
                 _phase = $"{_floor}층 클리어!";
-                yield return ShowClearBanner();
+                yield return ShowClearBanner(); // 이 동안 설계 도착(레이턴시 은폐)
+                while (!forkReady) yield return null;
 
+                var options = ToOptions(choices);
                 int idx = 0;
                 _phase = "갈림길 선택";
-                yield return _select.Choose(options, _persona.Fork(), i => idx = i); // 갈림길 대사는 로컬(즉시)
+                yield return _select.Choose(options, _persona.Fork(), i => idx = i); // 갈림길 유도 대사는 로컬(즉시)
 
-                // === 로딩 화면 표시 + 선택한 선택지의 대사 대기(최소 표시시간 보장) ===
-                _phase = "AI Director 분석 중...";
+                var opt = options[idx];
+                _arch = ForkArchetypes.ById(opt.archetypeId);
+
+                // 선택한 유형의 '검증된 수치'로 다음 층을 코드가 구성. 전술=정책, 대사/톤=AI 저작.
+                float diff = Mathf.Clamp(DirectorPolicy.CanonicalDifficulty(profile) * _arch.diffMul, 0.8f, 1.6f);
+                var decision = new DirectorDecision
+                {
+                    composition = DirectorPolicy.CompositionAvoiding(profile, _lastComp),
+                    topology = DirectorPolicy.ChooseTopologyAvoiding(profile, nextFloor, _lastTopo),
+                    difficultyModifier = diff,
+                    tone = DirectorPolicy.IsValidTone(opt.tone) ? opt.tone : Tone.Neutral,
+                    analysis = opt.line,
+                };
+                bool elite = DirectorPolicy.WillSpawnElite(nextFloor, diff);
+                if (!elite && decision.tone == Tone.Taunt) // 도발은 정예급만 → 강등 시 대사도 톤에 맞춤
+                {
+                    decision.tone = DirectorPolicy.NonTauntTone(profile);
+                    decision.analysis = _persona.Fallback(decision.tone);
+                }
+                if (string.IsNullOrWhiteSpace(decision.analysis)) decision.analysis = _persona.Fallback(decision.tone);
+
+                // 전환 페이싱용 로딩(AI 재요청은 없음 — 대사는 이미 확정).
+                _phase = "다음 스테이지 준비...";
                 if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
                 float t0 = Time.time;
-                while (!ready[idx] || Time.time - t0 < MinLoadSeconds) yield return null;
-                var decision = results[idx] ?? FallbackPresets.Build(profile);
+                while (Time.time - t0 < MinLoadSeconds) yield return null;
 
-                if (options[idx].kind == PathKind.Rest)
-                    _playerHealth.Heal(_playerHealth.maxHp * 0.4f);
-                // 정예 전투 난이도는 이미 대사에 반영돼 있음(선요청 시 상향된 difficultyModifier 사용).
+                if (_arch.heal01 > 0f) _playerHealth.Heal(_playerHealth.maxHp * _arch.heal01);
 
                 _current = decision;
                 _lastComp = _current.composition; _lastTopo = _current.topology;
                 _hud?.ShowDecision(_current);
-                Debug.Log($"[AI Director] {_current}");
+                Debug.Log($"[AI Director] 갈림길:{_arch.id} → {_current}");
                 _floor++;
             }
         }
@@ -124,7 +134,8 @@ namespace AIDungeon.Game
             _spawner.Configure(_room.center, _room.half);
 
             _logger.ResetFloor();
-            _spawner.SpawnWave(decision, EnemyCount(_floor), _floor);
+            int count = Mathf.Max(1, Mathf.RoundToInt(EnemyCount(_floor) * _arch.countMul)); // 유형별 적 수 배수
+            _spawner.SpawnWave(decision, count, _floor);
             _phase = $"{_floor}층 — 전투";
             yield return null; // 스폰 반영
 
@@ -149,16 +160,26 @@ namespace AIDungeon.Game
             Destroy(canvas.gameObject);
         }
 
-        // 갈림길 후보 (스켈레톤: 전투/정예/휴식. 확장: 보물·이벤트·상점, AI 개입)
-        private List<PathOption> BuildOptions()
+        // AI가 설계한 갈림길 선택지(ForkChoice) → UI용 PathOption 변환.
+        private List<PathOption> ToOptions(List<ForkChoice> choices)
         {
-            return new List<PathOption>
-            {
-                new PathOption { kind = PathKind.Combat, title = "전투",     desc = "평범한 다음 방" },
-                new PathOption { kind = PathKind.Elite,  title = "정예 전투", desc = "더 강한 적 (난이도↑)" },
-                new PathOption { kind = PathKind.Rest,   title = "휴식",     desc = "체력 40% 회복" },
-            };
+            var list = new List<PathOption>(choices.Count);
+            foreach (var c in choices)
+                list.Add(new PathOption
+                {
+                    archetypeId = c.id,
+                    kind = KindOf(c.id), // 카드 색상용
+                    title = c.title,
+                    desc = c.desc,
+                    line = c.line,
+                    tone = c.tone,
+                });
+            return list;
         }
+
+        private static PathKind KindOf(string archId) =>
+            archId == ForkArchetypes.Elite.id ? PathKind.Elite :
+            archId == ForkArchetypes.Rest.id ? PathKind.Rest : PathKind.Combat;
 
         private void TeleportPlayer(Vector2 pos)
         {

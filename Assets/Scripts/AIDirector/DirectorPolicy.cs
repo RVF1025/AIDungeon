@@ -94,6 +94,21 @@ namespace AIDungeon.Director
             return Tone.Neutral;
         }
 
+        // 대사에 방/지형/위치 단어가 하나라도 있으면 true(정책상 공간 언급 전면 금지).
+        // topology는 실제 방으로 이미 보이므로 대사가 묘사할 필요가 없다 → 모순 원천 차단.
+        private static readonly string[] SpaceWords =
+        {
+            "통로", "복도", "개활", "광야", "벌판", "엄폐", "기둥", "차폐", "은폐",
+            "포위", "에워", "둘러싸", "틈새", "탁 트", "코너",
+        };
+        public static bool MentionsSpace(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            foreach (var w in SpaceWords)
+                if (text.Contains(w)) return true;
+            return false;
+        }
+
         // 폴백/검증용 기본 tone (AI가 없을 때만 사용).
         public static string CanonicalTone(PlayerProfile p)
         {
