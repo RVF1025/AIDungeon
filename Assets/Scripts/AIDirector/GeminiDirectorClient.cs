@@ -174,7 +174,7 @@ namespace AIDungeon.Director
                 case Composition.KiterPack:  return "방 형태는 언급 말고 오직 '거리/사거리/네 공격이 닿지 못함'에만 집중.";
                 case Composition.RusherPack: return "'순식간에 접근/거리를 좁혀 압박'에 집중.";
                 case Composition.TankBait:   return "'미끼/유인/함정'에 집중.";
-                default:                     return "특정 전술 우위(거리/접근/미끼)를 주장하지 말 것. '균형' 같은 단어도 쓰지 말고, 플레이어의 현재 체력·난이도 등 '지금 상황'만 근거로 짧게 도발/관찰.";
+                default:                     return "이번엔 특별한 전술이 없다. 공간이나 전투 방식은 일절 언급하지 말고, 오직 플레이어의 현재 체력 상태만 근거로 한 문장 도발/관찰하라. 체력이 높으면 여유를 비웃고, 낮으면 곧 무너질 것을 조롱하라.";
             }
         }
 
