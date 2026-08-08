@@ -36,6 +36,22 @@ namespace AIDungeon.Game
             return s;
         }
 
+        /// <summary>
+        /// 타일을 FullRect 메시 스프라이트로 생성(Sprite.Create는 기본이 FullRect).
+        /// drawMode=Tiled가 임포트 설정(Full Rect) 없이도 제대로 반복 렌더되게 한다.
+        /// </summary>
+        public static Sprite TileFullRect(int index)
+        {
+            string key = "tf" + index;
+            if (_cache.TryGetValue(key, out var s)) return s;
+            var tex = Resources.Load<Texture2D>($"kenney_tiny-dungeon/Tiles/tile_{index:0000}");
+            if (tex == null) { Debug.LogWarning($"[SpriteFactory] tile_{index:0000} 텍스처 로드 실패"); return Tile(index); }
+            tex.filterMode = FilterMode.Point;
+            s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+            _cache[key] = s;
+            return s;
+        }
+
         /// <summary>스프라이트 실제 크기 기준으로 원하는 월드 높이에 맞춰 스케일(PPU 무관).</summary>
         public static float ScaleFor(Sprite sprite, float worldHeight)
         {
