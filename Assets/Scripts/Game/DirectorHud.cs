@@ -16,6 +16,7 @@ namespace AIDungeon.Game
         private TextMeshProUGUI _status, _tag, _analysis;
         private string _personaName = "";
         private Image _portrait;
+        private GameObject _portraitFrame;
         private Sprite _pTaunt, _pImpressed, _pConcern, _pNeutral;
         private bool _hasPortrait;
 
@@ -33,12 +34,17 @@ namespace AIDungeon.Game
             if (tex == null) { if (_portrait != null) _portrait.enabled = false; return; }
 
             int hw = tex.width / 2, hh = tex.height / 2; // Unity 텍스처 좌표: (0,0)=좌하단
-            Sprite Slice(int x, int y) => Sprite.Create(tex, new Rect(x, y, hw, hh), new Vector2(0.5f, 0.5f), 100f);
+            // 우/하단 크롭(Gemini 워터마크 제거). 얼굴이 코너에 없게 뽑으면 손실 적음.
+            const float mr = 0.10f, mb = 0.10f;
+            int cw = Mathf.RoundToInt(hw * (1f - mr)), ch = Mathf.RoundToInt(hh * (1f - mb));
+            int by = Mathf.RoundToInt(hh * mb);
+            Sprite Slice(int x, int y) => Sprite.Create(tex, new Rect(x, y + by, cw, ch), new Vector2(0.5f, 0.5f), 100f);
             _pTaunt = Slice(0, hh);       // 좌상: 비웃음
             _pImpressed = Slice(hw, hh);  // 우상: 놀람
             _pConcern = Slice(0, 0);      // 좌하: 걱정
             _pNeutral = Slice(hw, 0);     // 우하: 무표정
             _hasPortrait = true;
+            if (_portraitFrame != null) _portraitFrame.SetActive(true);
         }
 
         private void Awake()
@@ -79,7 +85,16 @@ namespace AIDungeon.Game
                 new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(1500, 210),
                 new Color(0.05f, 0.06f, 0.12f, 0.82f));
 
-            // 좌측 초상(패널 위로 살짝 솟게). 초상 로드 전엔 숨김.
+            // 초상 액자(파란 테두리 + 어두운 바탕) → 배경 있는 초상도 자연스럽게
+            var frame = MakePanel(panel, new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0),
+                new Vector2(12, 0), new Vector2(200, 200), new Color(0.4f, 0.75f, 1f, 0.9f));
+            var inner = MakePanel(frame, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(-8, -8), new Color(0.03f, 0.03f, 0.06f, 1f));
+            inner.GetComponent<Image>().raycastTarget = false;
+            _portraitFrame = frame.gameObject;
+            _portraitFrame.SetActive(false); // 초상 로드 성공 시에만 표시
+
+            // 좌측 초상(액자 안). 초상 로드 전엔 숨김.
             var pgo = new GameObject("Portrait", typeof(RectTransform));
             pgo.transform.SetParent(panel, false);
             var prt = pgo.GetComponent<RectTransform>();
