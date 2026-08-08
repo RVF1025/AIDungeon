@@ -33,11 +33,7 @@ namespace AIDungeon.Game
             if (tex == null) { if (_portrait != null) _portrait.enabled = false; return; }
 
             int hw = tex.width / 2, hh = tex.height / 2; // Unity 텍스처 좌표: (0,0)=좌하단
-            // 우/하단 크롭(Gemini 워터마크 제거). 얼굴이 코너에 없게 뽑으면 손실 적음.
-            const float mr = 0.10f, mb = 0.10f;
-            int cw = Mathf.RoundToInt(hw * (1f - mr)), ch = Mathf.RoundToInt(hh * (1f - mb));
-            int by = Mathf.RoundToInt(hh * mb);
-            Sprite Slice(int x, int y) => Sprite.Create(tex, new Rect(x, y + by, cw, ch), new Vector2(0.5f, 0.5f), 100f);
+            Sprite Slice(int x, int y) => Sprite.Create(tex, new Rect(x, y, hw, hh), new Vector2(0.5f, 0.5f), 100f);
             _pTaunt = Slice(0, hh);       // 좌상: 비웃음
             _pImpressed = Slice(hw, hh);  // 우상: 놀람
             _pConcern = Slice(0, 0);      // 좌하: 걱정
