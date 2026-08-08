@@ -1,50 +1,69 @@
 using System.Collections.Generic;
-using System.Text;
+using UnityEngine;
 
 namespace AIDungeon.Director
 {
     /// <summary>
-    /// 갈림길 선택지의 '기계적 유형'(코드 소유·검증됨). AI는 이 풀에서 상황·성향에 맞게 고르고
-    /// 제목/설명/대사만 성향 말투로 작성한다. 수치는 절대 AI가 못 건드림 → 밸런스 안 깨짐.
-    ///   diffMul  : 다음 층 난이도 배수(정예 등장 임계 1.35와 연동)
+    /// 갈림길 선택지 유형(코드 소유·검증됨). 제목/설명은 고정 문구. AI는 '어느 유형이 나올지'가 아니라
+    /// 제시된 갈림길을 한 문장으로 '평가'만 한다(선택 가중치는 코드가 성향·상황으로 계산).
+    ///   diffMul  : 다음 층 난이도 배수
     ///   countMul : 적 수 배수
-    ///   heal01   : 진입 전 회복량(최대 체력 대비, 0=없음)
+    ///   heal01   : 진입 시 회복량(최대 체력 대비)
+    ///   combat   : 전투 방인지(휴식은 false → 전투 없이 회복 후 다음 갈림길)
+    ///   treasure : 클리어 후 보물상자 지급
+    ///   mystery  : ??? 방(진입 시 무작위 결과로 해석)
     /// </summary>
     public class ForkArchetype
     {
         public string id;
-        public string title;      // 기본 제목(AI 미작성 시 폴백)
-        public string desc;       // 기본 설명(폴백)
-        public string meaning;    // 프롬프트용 유형 의미(AI가 고를 근거)
+        public string title;
+        public string desc;
         public float diffMul = 1f;
         public float countMul = 1f;
         public float heal01 = 0f;
+        public bool combat = true;
+        public bool treasure = false;
+        public bool mystery = false;
+    }
+
+    /// <summary>AI가 제시된 갈림길을 평가한 한 문장(초상 표정용 tone 포함).</summary>
+    public class ForkComment
+    {
+        public string line;
+        public string tone;
+    }
+
+    /// <summary>??? 방이 진입 시 해석된 결과.</summary>
+    public class MysteryOutcome
+    {
+        public float diffMul = 1f;
+        public float countMul = 1f;
+        public bool treasure = false;
+        public string reveal; // 층 진입 대화에서 정체 공개
     }
 
     public static class ForkArchetypes
     {
         public static readonly ForkArchetype Normal = new()
         {
-            id = "normal", title = "평범한 전투", desc = "무난한 다음 방",
-            meaning = "표준 난이도 전투", diffMul = 1f,
+            id = "normal", title = "일반 전투", desc = "평범한 난이도의 전투", diffMul = 1f,
         };
         public static readonly ForkArchetype Elite = new()
         {
-            id = "elite", title = "정예 전투", desc = "강적(정예)이 기다린다 · 난이도↑",
-            meaning = "강한 소수(정예 등장), 고난이도·고위험", diffMul = 1.3f,
-        };
-        public static readonly ForkArchetype Horde = new()
-        {
-            id = "horde", title = "물량전", desc = "약하지만 수많은 적",
-            meaning = "약한 적 다수의 물량 압박", diffMul = 0.9f, countMul = 1.6f,
+            id = "elite", title = "정예 전투", desc = "정예 몬스터와 더 좋은 보상",
+            diffMul = 1.3f, treasure = true,
         };
         public static readonly ForkArchetype Rest = new()
         {
-            id = "rest", title = "휴식", desc = "체력 회복 + 가벼운 전투",
-            meaning = "회복 후 소수의 적만 상대하는 한숨 돌리는 길", diffMul = 1f, countMul = 0.6f, heal01 = 0.4f,
+            id = "rest", title = "휴식 공간", desc = "체력 40% 회복",
+            combat = false, heal01 = 0.4f,
+        };
+        public static readonly ForkArchetype Mystery = new()
+        {
+            id = "mystery", title = "???", desc = "무엇이 나올지 알 수 없다", mystery = true,
         };
 
-        public static readonly ForkArchetype[] All = { Normal, Elite, Horde, Rest };
+        public static readonly ForkArchetype[] All = { Normal, Elite, Rest, Mystery };
 
         public static ForkArchetype ById(string id)
         {
@@ -52,55 +71,80 @@ namespace AIDungeon.Director
             return Normal;
         }
 
-        public static bool IsValidId(string id)
-        {
-            foreach (var a in All) if (a.id == id) return true;
-            return false;
-        }
+        // 페르소나 id(DirectorPersonas와 일치).
+        private const string Aristocrat = "aristocrat", Jester = "jester", Executioner = "executioner";
 
-        /// <summary>프롬프트에 넣을 유형 메뉴(AI가 선택 근거로 삼음).</summary>
-        public static string Menu()
+        /// <summary>
+        /// 이번 갈림길에 제시할 유형 3종을 성향·상황 가중치로 뽑는다(중복 없음).
+        /// 휴식은 직전 노드가 휴식이면 제외(연속 등장 금지).
+        /// </summary>
+        public static List<ForkArchetype> Select(string personaId, float avgHpPct, string lastArchId)
         {
-            var sb = new StringBuilder();
-            for (int i = 0; i < All.Length; i++)
+            var pool = new List<ForkArchetype>(All);
+            var weights = new List<float>(pool.Count);
+            foreach (var a in pool) weights.Add(Weight(a, personaId, avgHpPct, lastArchId));
+
+            var chosen = new List<ForkArchetype>(3);
+            for (int k = 0; k < 3 && pool.Count > 0; k++)
             {
-                if (i > 0) sb.Append("; ");
-                sb.Append(All[i].id).Append(':').Append(All[i].meaning);
+                int i = WeightedIndex(weights);
+                if (i < 0) break;
+                chosen.Add(pool[i]);
+                pool.RemoveAt(i); weights.RemoveAt(i);
             }
-            return sb.ToString();
+            return chosen;
         }
 
-        /// <summary>스키마 enum용 id 목록("normal","elite",...).</summary>
-        public static string IdEnumJson()
+        private static float Weight(ForkArchetype a, string persona, float hp, string lastArchId)
         {
-            var sb = new StringBuilder();
-            for (int i = 0; i < All.Length; i++)
+            if (a.id == Rest.id && lastArchId == Rest.id) return 0f; // 연속 휴식 금지
+
+            float w = 1f;
+            switch (a.id)
             {
-                if (i > 0) sb.Append(',');
-                sb.Append('"').Append(All[i].id).Append('"');
+                case "rest":
+                    w *= 1f + (1f - Mathf.Clamp01(hp)) * 2.5f;       // 체력 낮을수록 ↑
+                    if (persona == Aristocrat) w *= 1.6f;             // 귀족: 자비 성향
+                    else if (persona == Executioner) w *= 0.35f;     // 처형자: 잘 안 줌
+                    else if (persona == Jester) w *= 0.8f;
+                    break;
+                case "elite":
+                    if (persona == Executioner) w *= 2.0f;           // 처형자: 강적 선호
+                    else if (persona == Aristocrat) w *= 0.9f;
+                    break;
+                case "mystery":
+                    if (persona == Jester) w *= 2.5f;                // 광대: 예측불가 선호
+                    else w *= 0.7f;
+                    break;
             }
-            return sb.ToString();
+            return Mathf.Max(0f, w);
         }
 
-        /// <summary>AI 실패/무효 시 쓸 기본 3종(코드 저작).</summary>
-        public static List<ForkChoice> DefaultChoices()
+        private static int WeightedIndex(List<float> weights)
         {
-            return new List<ForkChoice>
+            float total = 0f;
+            foreach (var w in weights) total += w;
+            if (total <= 0f) return -1;
+            float roll = Random.value * total;
+            for (int i = 0; i < weights.Count; i++)
             {
-                new() { id = Normal.id, title = Normal.title, desc = Normal.desc, line = "", tone = Tone.Neutral },
-                new() { id = Elite.id,  title = Elite.title,  desc = Elite.desc,  line = "", tone = Tone.Neutral },
-                new() { id = Rest.id,   title = Rest.title,   desc = Rest.desc,   line = "", tone = Tone.Neutral },
-            };
+                roll -= weights[i];
+                if (roll <= 0f) return i;
+            }
+            return weights.Count - 1;
         }
-    }
 
-    /// <summary>AI가 설계한 갈림길 선택지 하나(유형 id + 성향 말투 저작 텍스트).</summary>
-    public class ForkChoice
-    {
-        public string id;      // ForkArchetypes 풀의 유형 id(검증됨)
-        public string title;   // 성향 말투 제목
-        public string desc;    // 성향 말투 설명
-        public string line;    // 그 길을 골랐을 때 진입 대사(성향 말투)
-        public string tone;    // taunt/impressed/concern/neutral
+        /// <summary>??? 방 진입 시 무작위 결과 해석(광대다운 예측불가).</summary>
+        public static MysteryOutcome ResolveMystery()
+        {
+            int r = Random.Range(0, 4);
+            switch (r)
+            {
+                case 0: return new MysteryOutcome { diffMul = 1.3f, treasure = true, reveal = "정예의 매복이었다!" };
+                case 1: return new MysteryOutcome { diffMul = 0.9f, countMul = 1.6f, reveal = "적 떼의 습격이다!" };
+                case 2: return new MysteryOutcome { diffMul = 1.15f, reveal = "함정이 도사리고 있었다." };
+                default: return new MysteryOutcome { diffMul = 1.0f, treasure = true, reveal = "뜻밖의 보물을 발견했다!" };
+            }
+        }
     }
 }

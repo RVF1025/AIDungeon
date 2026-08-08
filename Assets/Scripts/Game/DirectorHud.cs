@@ -26,6 +26,18 @@ namespace AIDungeon.Game
             LoadPortraits(persona.id);
         }
 
+        public string PersonaName => _personaName;
+        public bool HasPortrait => _hasPortrait;
+
+        /// <summary>tone에 맞는 초상 스프라이트(갈림길 화면 등 외부에서 재사용).</summary>
+        public Sprite PortraitFor(string tone) => tone switch
+        {
+            Tone.Taunt => _pTaunt,
+            Tone.Impressed => _pImpressed,
+            Tone.Concern => _pConcern,
+            _ => _pNeutral,
+        };
+
         private void LoadPortraits(string id)
         {
             _hasPortrait = false;

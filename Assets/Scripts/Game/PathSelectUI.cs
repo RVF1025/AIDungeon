@@ -11,17 +11,15 @@ namespace AIDungeon.Game
     public enum PathKind { Combat, Elite, Rest }
 
     /// <summary>
-    /// 갈림길 노드 한 개. AI가 유형(archetypeId)을 골라 title/desc/line/tone을 성향 말투로 저작한다.
-    /// 수치(난이도/적수/회복)는 archetypeId에 매핑된 ForkArchetype이 소유(코드).
+    /// 갈림길 노드 한 개. 제목/설명은 고정 문구(코드). 수치는 archetypeId에 매핑된 ForkArchetype이 소유.
+    /// 감독의 평가 대사는 카드가 아니라 상단 채팅에 별도로 표시된다.
     /// </summary>
     public class PathOption
     {
-        public PathKind kind;         // 카드 색상용(레거시)
+        public PathKind kind;         // 카드 색상용
         public string archetypeId;    // ForkArchetypes 풀의 유형 id
         public string title;
         public string desc;
-        public string line;           // 선택 시 진입 대사(AI 저작)
-        public string tone;           // 진입 대사 톤(초상 표정)
     }
 
     /// <summary>
@@ -32,10 +30,11 @@ namespace AIDungeon.Game
     {
         private int _chosen;
 
-        public IEnumerator Choose(List<PathOption> options, string dialogue, Action<int> onChosen)
+        public IEnumerator Choose(List<PathOption> options, string personaName, string comment,
+                                  Sprite portrait, Action<int> onChosen)
         {
             _chosen = -1;
-            var canvas = Build(options, dialogue);
+            var canvas = Build(options, personaName, comment, portrait);
 
             while (_chosen < 0)
             {
@@ -53,17 +52,34 @@ namespace AIDungeon.Game
             onChosen?.Invoke(_chosen);
         }
 
-        private Canvas Build(List<PathOption> options, string dialogue)
+        private Canvas Build(List<PathOption> options, string personaName, string comment, Sprite portrait)
         {
             var canvas = ScreenUi.BuildCanvas("PathSelectCanvas");
-            ScreenUi.Label(canvas.transform, dialogue, 44f, new Vector2(0, 340));
-            ScreenUi.Label(canvas.transform, "숫자 키로 갈림길을 선택하시오", 28f, new Vector2(0, 280));
+
+            // 상단 감독 초상 + 평가 채팅
+            if (portrait != null)
+            {
+                var pgo = new GameObject("ForkPortrait", typeof(RectTransform));
+                pgo.transform.SetParent(canvas.transform, false);
+                var prt = pgo.GetComponent<RectTransform>();
+                prt.anchoredPosition = new Vector2(-430, 320);
+                prt.sizeDelta = new Vector2(200, 200);
+                var pImg = pgo.AddComponent<Image>();
+                pImg.sprite = portrait;
+                pImg.preserveAspect = true;
+                pImg.raycastTarget = false;
+            }
+            if (!string.IsNullOrEmpty(personaName))
+                ScreenUi.Label(canvas.transform, $"감독: {personaName}", 26f, new Vector2(-150, 380), 700f);
+            ScreenUi.Label(canvas.transform, string.IsNullOrEmpty(comment) ? "" : $"\"{comment}\"", 40f,
+                new Vector2(-150, 315), 720f);
+            ScreenUi.Label(canvas.transform, "숫자 키로 갈림길을 선택하시오", 26f, new Vector2(0, 210));
 
             int n = options.Count;
             const float spacing = 500f;
             float x0 = -(n - 1) * 0.5f * spacing;
             for (int i = 0; i < n; i++)
-                BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, -20));
+                BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, -60));
 
             return canvas;
         }
