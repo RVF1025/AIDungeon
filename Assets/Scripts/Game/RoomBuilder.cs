@@ -8,22 +8,23 @@ namespace AIDungeon.Game
     {
         public GameObject root;
         public Vector2 center;
-        public Vector2 half;      // 벽 안쪽 반경
+        public Vector2 half;      // 벽 안쪽 반경(바닥 영역)
         public Vector2 playerSpawn;
     }
 
     /// <summary>
-    /// AI Director의 topology 결정을 실제 방 구조로 만든다(설계 문서 3.3 topology).
-    ///   corridor → 길쭉한 통로,  open → 넓은 개활지,
-    ///   cover → 기둥(엄폐물) 배치, encircle → 정사각(포위형)
-    /// 층마다 center를 멀리 떨어뜨려 "새로운 위치"를 만든다(카메라는 스냅).
+    /// AI Director의 topology를 방 구조로 만든다. 바닥/벽은 Kenney Tiny Dungeon 타일로 깔고,
+    /// 벽 타일이 곧 콜라이더(Solid)다. cover면 기둥 배치.
     /// </summary>
     public static class RoomBuilder
     {
+        private const int FloorTile = 0, WallTile = 40, PillarTile = 28;
+        private const float TileSize = 1.0f;
+
         public static Room Build(DirectorDecision d, int floor)
         {
             var root = new GameObject($"Room_{floor}");
-            Vector2 center = new Vector2(floor * 80f, 0f); // 층마다 먼 새 위치
+            Vector2 center = new Vector2(floor * 80f, 0f);
 
             Vector2 half; Vector2 spawn;
             switch (d.topology)
@@ -40,50 +41,65 @@ namespace AIDungeon.Game
                     half = new Vector2(12f, 7f); spawn = center; break;
             }
 
-            BuildFloorAndWalls(root, center, half, floor);
-            if (d.topology == Topology.Cover)
-                BuildPillars(root, center, half, spawn);
+            BuildFloor(root, center, half);
+            BuildWalls(root, center, half);
+            if (d.topology == Topology.Cover) BuildPillars(root, center, half, spawn);
 
             return new Room { root = root, center = center, half = half, playerSpawn = spawn };
         }
 
-        private static void BuildFloorAndWalls(GameObject root, Vector2 center, Vector2 half, int floor)
+        private static GameObject MakeTile(GameObject root, int tile, Vector2 pos, int sorting)
         {
-            // 바닥 (층마다 색조 살짝 변화 → 새 장소 느낌)
-            var floorGo = new GameObject("Floor");
-            floorGo.transform.SetParent(root.transform, false);
-            floorGo.transform.position = center;
-            floorGo.transform.localScale = new Vector3(half.x * 2f, half.y * 2f, 1f);
-            var sr = floorGo.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square();
-            sr.color = Color.HSVToRGB((floor * 0.08f) % 1f, 0.22f, 0.16f);
-            sr.sortingOrder = -10;
-
-            float t = 1.5f; // 두꺼운 벽 → 빠른/겹친 몹의 관통 방지
-            Wall(root, center + new Vector2(0, half.y + t / 2f), new Vector2(half.x * 2f + t * 2f, t));
-            Wall(root, center + new Vector2(0, -half.y - t / 2f), new Vector2(half.x * 2f + t * 2f, t));
-            Wall(root, center + new Vector2(half.x + t / 2f, 0), new Vector2(t, half.y * 2f));
-            Wall(root, center + new Vector2(-half.x - t / 2f, 0), new Vector2(t, half.y * 2f));
+            var go = new GameObject("Tile");
+            go.transform.SetParent(root.transform, false);
+            go.transform.position = pos;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = SpriteFactory.Tile(tile);
+            sr.sortingOrder = sorting;
+            float s = SpriteFactory.ScaleFor(sr.sprite, TileSize);
+            go.transform.localScale = new Vector3(s, s, 1f);
+            return go;
         }
 
-        private static void Wall(GameObject root, Vector2 c, Vector2 size)
+        private static Vector2 Origin(Vector2 center, Vector2 half) =>
+            center - half + Vector2.one * (TileSize * 0.5f);
+
+        private static void BuildFloor(GameObject root, Vector2 center, Vector2 half)
         {
-            var go = new GameObject("Wall");
-            go.transform.SetParent(root.transform, false);
-            go.transform.position = c;
-            go.transform.localScale = new Vector3(size.x, size.y, 1f);
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Square();
-            sr.color = new Color(0.25f, 0.25f, 0.32f);
-            sr.sortingOrder = 0;
-            go.AddComponent<BoxCollider2D>();
+            int nx = Mathf.CeilToInt(half.x * 2f / TileSize);
+            int ny = Mathf.CeilToInt(half.y * 2f / TileSize);
+            Vector2 o = Origin(center, half);
+            for (int i = 0; i < nx; i++)
+                for (int j = 0; j < ny; j++)
+                {
+                    Vector2 pos = o + new Vector2(i * TileSize, j * TileSize);
+                    int t = Random.value < 0.07f ? (Random.value < 0.5f ? 12 : 24) : FloorTile; // 가끔 잔해
+                    MakeTile(root, t, pos, -10);
+                }
+        }
+
+        private static void BuildWalls(GameObject root, Vector2 center, Vector2 half)
+        {
+            int nx = Mathf.CeilToInt(half.x * 2f / TileSize);
+            int ny = Mathf.CeilToInt(half.y * 2f / TileSize);
+            for (int i = -1; i <= nx; i++) { PlaceWall(root, center, half, i, -1); PlaceWall(root, center, half, i, ny); }
+            for (int j = 0; j < ny; j++) { PlaceWall(root, center, half, -1, j); PlaceWall(root, center, half, nx, j); }
+        }
+
+        private static void PlaceWall(GameObject root, Vector2 center, Vector2 half, int i, int j)
+        {
+            Vector2 pos = Origin(center, half) + new Vector2(i * TileSize, j * TileSize);
+            var go = MakeTile(root, WallTile, pos, 0);
+            var sr = go.GetComponent<SpriteRenderer>();
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = sr.sprite.bounds.size; // 로컬(스케일 적용 전) 크기
             go.AddComponent<Solid>();
         }
 
         private static void BuildPillars(GameObject root, Vector2 center, Vector2 half, Vector2 spawn)
         {
             int count = 5;
-            for (int i = 0; i < count; i++)
+            for (int k = 0; k < count; k++)
             {
                 Vector2 p = Vector2.zero;
                 for (int tries = 0; tries < 10; tries++)
@@ -91,17 +107,12 @@ namespace AIDungeon.Game
                     p = center + new Vector2(
                         Random.Range(-half.x + 2.5f, half.x - 2.5f),
                         Random.Range(-half.y + 2.5f, half.y - 2.5f));
-                    if (Vector2.Distance(p, spawn) > 4f) break; // 스폰 지점은 비움
+                    if (Vector2.Distance(p, spawn) > 4f) break;
                 }
-                var go = new GameObject("Pillar");
-                go.transform.SetParent(root.transform, false);
-                go.transform.position = p;
-                go.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = SpriteFactory.Square();
-                sr.color = new Color(0.32f, 0.32f, 0.4f);
-                sr.sortingOrder = 1;
-                go.AddComponent<BoxCollider2D>();
+                var go = MakeTile(root, PillarTile, p, 1);
+                var sr = go.GetComponent<SpriteRenderer>();
+                var col = go.AddComponent<BoxCollider2D>();
+                col.size = sr.sprite.bounds.size;
                 go.AddComponent<Solid>();
             }
         }
