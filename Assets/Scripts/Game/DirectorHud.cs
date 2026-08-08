@@ -33,7 +33,12 @@ namespace AIDungeon.Game
             if (tex == null) { if (_portrait != null) _portrait.enabled = false; return; }
 
             int hw = tex.width / 2, hh = tex.height / 2; // Unity 텍스처 좌표: (0,0)=좌하단
-            Sprite Slice(int x, int y) => Sprite.Create(tex, new Rect(x, y, hw, hh), new Vector2(0.5f, 0.5f), 100f);
+            // 2x2 시트의 셀 사이 검은 구분선/테두리(불투명 ~3px)가 슬라이스에 딸려오지 않도록
+            // 각 셀을 안쪽으로 살짝 잘라낸다(inset). 인물은 중앙 정렬이라 안전.
+            int mx = Mathf.RoundToInt(hw * 0.05f), my = Mathf.RoundToInt(hh * 0.05f);
+            Sprite Slice(int x, int y) =>
+                Sprite.Create(tex, new Rect(x + mx, y + my, hw - 2 * mx, hh - 2 * my),
+                              new Vector2(0.5f, 0.5f), 100f);
             _pTaunt = Slice(0, hh);       // 좌상: 비웃음
             _pImpressed = Slice(hw, hh);  // 우상: 놀람
             _pConcern = Slice(0, 0);      // 좌하: 걱정
