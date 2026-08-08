@@ -132,15 +132,17 @@ namespace AIDungeon.Director
         private static bool MentionsForeignSpace(string analysis, string topo)
         {
             if (string.IsNullOrEmpty(analysis)) return false;
-            // '사방'은 포위·탁트임 양쪽에 쓰여 애매하므로 필터에서 제외(포위/에워/둘러싸로 판별).
+            // '사방'은 포위·탁트임 양쪽에 쓰여 애매하므로 제외(포위/에워/둘러싸로 판별).
             // encircle은 '넓은 방'이라 개활지/탁 트임 언급이 모순 아님 → 금지 안 함.
+            // 동의어까지 차단: cover계열=엄폐/기둥/차폐/은폐, open계열=개활/광야/벌판/탁 트,
+            //                narrow계열=복도/통로/일렬/틈새, surround계열=포위/에워/둘러싸.
             string[] foreign;
             switch (topo)
             {
-                case Topology.Corridor: foreign = new[] { "엄폐", "개활", "탁 트", "포위", "에워", "둘러싸" }; break;
-                case Topology.Encircle: foreign = new[] { "엄폐", "복도", "통로", "일렬" }; break;
-                case Topology.Cover:    foreign = new[] { "복도", "통로", "개활", "탁 트", "포위", "에워" }; break;
-                case Topology.Open:     foreign = new[] { "엄폐", "복도", "통로", "일렬" }; break;
+                case Topology.Corridor: foreign = new[] { "엄폐", "기둥", "차폐", "은폐", "개활", "광야", "벌판", "탁 트", "포위", "에워", "둘러싸" }; break;
+                case Topology.Encircle: foreign = new[] { "엄폐", "기둥", "차폐", "은폐", "복도", "통로", "일렬", "틈새" }; break;
+                case Topology.Cover:    foreign = new[] { "복도", "통로", "개활", "광야", "벌판", "탁 트", "포위", "에워", "둘러싸" }; break;
+                case Topology.Open:     foreign = new[] { "엄폐", "기둥", "차폐", "은폐", "복도", "통로", "일렬", "틈새" }; break;
                 default: return false;
             }
             foreach (var w in foreign)
