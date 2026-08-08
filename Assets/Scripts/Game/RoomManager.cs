@@ -28,7 +28,7 @@ namespace AIDungeon.Game
         private DirectorDecision _current;
         private string _lastComp = "", _lastTopo = ""; // 직전 층(변화 보장용)
         private LoadingScreen _loading;
-        private const float MinLoadSeconds = 1.2f;
+        private const float MinLoadSeconds = 2.4f;
 
         public void Begin(EnemySpawner spawner, GeminiDirectorClient client,
                           BehaviorLogger logger, Health playerHealth, DirectorHud hud)

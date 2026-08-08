@@ -115,10 +115,36 @@ namespace AIDungeon.Director
                     decision.topology = topo;
                     decision.difficultyModifier = diff;
                     DirectorPolicy.Reconcile(decision, profile, letAiDecideTactics);
+
+                    // 공간 묘사 모순 방어: LLM이 프롬프트를 어기고 topology와 안 맞는 공간어를
+                    // 넣으면(예: corridor인데 '엄폐물') 같은 톤 페르소나 대사로 조용히 교체.
+                    if (MentionsForeignSpace(decision.analysis, decision.topology))
+                    {
+                        Debug.LogWarning($"[AIDirector] topology({decision.topology}) 불일치 공간어 → 페르소나 대사로 교체. \"{decision.analysis}\"");
+                        decision.analysis = persona.Fallback(decision.tone);
+                    }
                 }
 
                 onResult?.Invoke(decision);
             }
+        }
+
+        // 주어진 topology에 속하지 않는 '남의 방' 공간어가 대사에 있으면 true(모순).
+        private static bool MentionsForeignSpace(string analysis, string topo)
+        {
+            if (string.IsNullOrEmpty(analysis)) return false;
+            string[] foreign;
+            switch (topo)
+            {
+                case Topology.Corridor: foreign = new[] { "엄폐", "개활", "포위", "사방", "탁 트" }; break;
+                case Topology.Encircle: foreign = new[] { "엄폐", "복도", "통로", "개활", "탁 트" }; break;
+                case Topology.Cover:    foreign = new[] { "복도", "통로", "개활", "포위", "사방", "탁 트" }; break;
+                case Topology.Open:     foreign = new[] { "엄폐", "복도", "통로", "포위", "사방" }; break;
+                default: return false;
+            }
+            foreach (var w in foreign)
+                if (analysis.Contains(w)) return true;
+            return false;
         }
 
         private string BuildRequestBody(PlayerProfile p, string comp, string topo, float diff, string voice)
