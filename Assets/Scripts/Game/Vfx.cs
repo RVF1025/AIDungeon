@@ -44,6 +44,24 @@ namespace AIDungeon.Game
             }
         }
 
+        /// <summary>근접 스윙 아크: 조준 방향으로 호를 그리며 휙 지나감.</summary>
+        public static void Slash(Vector3 pos, Vector2 dir, float size, Color color)
+        {
+            var go = new GameObject("Slash");
+            go.transform.position = pos;
+            float ang = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            go.transform.rotation = Quaternion.Euler(0, 0, ang - 45f); // 위쪽에서 시작해 쓸어내림
+            go.transform.localScale = Vector3.one * size;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = SpriteFactory.Slash();
+            sr.color = color;
+            sr.sortingOrder = 6;
+            var fx = go.AddComponent<FxLife>().Bind();
+            fx.rotatePerSec = 700f; // 휘두르는 스윕
+            fx.scalePerSec = size * 1.5f;
+            fx.life = 0.14f;
+        }
+
         /// <summary>피격 스파크: 짧게 번쩍하는 원.</summary>
         public static void Spark(Vector3 pos, Color color)
         {

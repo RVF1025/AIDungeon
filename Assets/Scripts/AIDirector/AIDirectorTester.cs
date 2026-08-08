@@ -31,7 +31,7 @@ namespace AIDungeon.Director
             {
                 var p = _samples[i];
                 Debug.Log($"→ 요청: {p.ToPromptLine()}");
-                yield return _client.RequestDecision(p, i + 1, d =>
+                yield return _client.RequestDecision(p, i + 1, "", "", d =>
                 {
                     Debug.Log($"← 결과: {d}");
                 });

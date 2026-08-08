@@ -25,6 +25,7 @@ namespace AIDungeon.Game
         private string _phase = "";
         private Room _room;
         private DirectorDecision _current;
+        private string _lastComp = "", _lastTopo = ""; // 직전 층(변화 보장용)
         private LoadingScreen _loading;
         private const float MinLoadSeconds = 1.2f;
 
@@ -52,6 +53,7 @@ namespace AIDungeon.Game
         private IEnumerator RunGame()
         {
             _current = IntroDecision();
+            _lastComp = _current.composition; _lastTopo = _current.topology;
             _hud?.ShowDecision(_current);
 
             while (true) // 무한 — 사망 시에만 종료
@@ -67,7 +69,8 @@ namespace AIDungeon.Game
                 // 클리어 순간부터 AI 요청 시작(배너+선택 동안 레이턴시 은폐)
                 int nextFloor = _floor + 1;
                 DirectorDecision res = null; bool ready = false;
-                StartCoroutine(_client.RequestDecision(profile, nextFloor, d => { res = d; ready = true; }));
+                StartCoroutine(_client.RequestDecision(profile, nextFloor, _lastComp, _lastTopo,
+                    d => { res = d; ready = true; }));
 
                 _phase = $"{_floor}층 클리어!";
                 yield return ShowClearBanner();
@@ -95,6 +98,7 @@ namespace AIDungeon.Game
                 }
 
                 _current = decision;
+                _lastComp = _current.composition; _lastTopo = _current.topology;
                 _hud?.ShowDecision(_current);
                 Debug.Log($"[AI Director] {_current}");
                 _floor++;

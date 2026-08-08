@@ -114,7 +114,7 @@ namespace AIDungeon.Game
                 hp.TakeDamage(meleeDamage, dir);
                 BehaviorLogger.Instance?.RecordDamage(DamageType.Melee, meleeDamage);
             }
-            SlashFx(center);
+            Vfx.Slash(center, AimDir(), meleeRange * 1.4f, new Color(0.6f, 1f, 1f, 0.9f));
         }
 
         private void DoRanged()
@@ -127,17 +127,5 @@ namespace AIDungeon.Game
                       DamageType.Ranged, new Color(0.4f, 0.9f, 1f));
         }
 
-        // 근접 타격 위치에 잠깐 나타나는 표식(피드백용).
-        private void SlashFx(Vector2 pos)
-        {
-            var go = new GameObject("SlashFx");
-            go.transform.position = pos;
-            go.transform.localScale = Vector3.one * meleeRange;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.Circle();
-            sr.color = new Color(1f, 1f, 1f, 0.25f);
-            sr.sortingOrder = 4;
-            Destroy(go, 0.08f);
-        }
     }
 }

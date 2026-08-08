@@ -46,6 +46,29 @@ namespace AIDungeon.Director
             return CanonicalTopology(p);
         }
 
+        private static readonly string[] CompOrder =
+            { Composition.KiterPack, Composition.RusherPack, Composition.TankBait, Composition.Balanced };
+        private static readonly string[] TopoOrder =
+            { Topology.Cover, Topology.Open, Topology.Encircle, Topology.Corridor };
+
+        /// <summary>직전 층과 같은 구성이면 다른 걸로 밀어 변화 보장.</summary>
+        public static string CompositionAvoiding(PlayerProfile p, string last)
+        {
+            var c = CanonicalComposition(p);
+            if (c != last || string.IsNullOrEmpty(last)) return c;
+            int i = System.Array.IndexOf(CompOrder, c);
+            return CompOrder[(Mathf.Max(i, 0) + 1) % CompOrder.Length];
+        }
+
+        /// <summary>직전 층과 같은 방형태면 다른 걸로 밀어 변화 보장.</summary>
+        public static string ChooseTopologyAvoiding(PlayerProfile p, int floor, string last)
+        {
+            var t = ChooseTopology(p, floor);
+            if (t != last || string.IsNullOrEmpty(last)) return t;
+            int i = System.Array.IndexOf(TopoOrder, t);
+            return TopoOrder[(Mathf.Max(i, 0) + 1) % TopoOrder.Length];
+        }
+
         // difficultyModifier ← avgHpPct (0.8 여유~ 1.3 몰아붙임). 순수 계산, AI는 서사만.
         public static float CanonicalDifficulty(PlayerProfile p)
         {

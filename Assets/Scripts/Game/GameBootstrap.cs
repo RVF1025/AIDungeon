@@ -71,6 +71,7 @@ namespace AIDungeon.Game
             health.Init(Team.Player, 100f);
             go.AddComponent<PlayerController>();
             go.AddComponent<HitReaction>();
+            go.AddComponent<HealthBar>().alwaysShow = true;
             return go;
         }
     }

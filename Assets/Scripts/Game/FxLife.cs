@@ -11,6 +11,7 @@ namespace AIDungeon.Game
     {
         public Vector3 velocity;
         public float scalePerSec;
+        public float rotatePerSec;
         public float life = 0.5f;
 
         private SpriteRenderer _sr;
@@ -33,6 +34,7 @@ namespace AIDungeon.Game
 
             transform.position += velocity * Time.deltaTime;
             if (scalePerSec != 0f) transform.localScale += Vector3.one * (scalePerSec * Time.deltaTime);
+            if (rotatePerSec != 0f) transform.Rotate(0f, 0f, rotatePerSec * Time.deltaTime);
 
             var c = _c0; c.a = _c0.a * k;
             if (_sr != null) _sr.color = c;

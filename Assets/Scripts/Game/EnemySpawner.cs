@@ -163,6 +163,7 @@ namespace AIDungeon.Game
             go.AddComponent<Health>();
             go.AddComponent<EnemyController>().Init(type, baseHp * diff, diff, _player, _playerHealth);
             go.AddComponent<HitReaction>(); // 색/컴포넌트 세팅 후 부착
+            go.AddComponent<HealthBar>(); // 적: 피해 입었을 때만 표시
         }
     }
 }

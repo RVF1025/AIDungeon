@@ -44,6 +44,31 @@ namespace AIDungeon.Game
             return h > 0.0001f ? worldHeight / h : 1f;
         }
 
+        /// <summary>근접 스윙용 초승달(아크) 스프라이트. +x 쪽으로 열린 호.</summary>
+        public static Sprite Slash()
+        {
+            if (_cache.TryGetValue("slash", out var s)) return s;
+            const int R = 32; float c = (R - 1) / 2f;
+            var tex = new Texture2D(R, R, TextureFormat.RGBA32, false);
+            var px = new Color[R * R];
+            for (int y = 0; y < R; y++)
+                for (int x = 0; x < R; x++)
+                {
+                    float dx = x - c, dy = y - c;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float ang = Mathf.Atan2(dy, dx) * Mathf.Rad2Deg;
+                    bool ring = d <= 14f && d >= 9f;
+                    bool arc = ring && Mathf.Abs(Mathf.DeltaAngle(ang, 0f)) < 70f; // +x쪽 호
+                    px[y * R + x] = arc ? Color.white : Color.clear;
+                }
+            tex.SetPixels(px);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.Apply();
+            s = Sprite.Create(tex, new Rect(0, 0, R, R), new Vector2(0.5f, 0.5f), R);
+            _cache["slash"] = s;
+            return s;
+        }
+
         public static Sprite Circle()
         {
             if (_cache.TryGetValue("ci", out var s)) return s;
