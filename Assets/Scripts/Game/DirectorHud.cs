@@ -85,7 +85,7 @@ namespace AIDungeon.Game
             var prt = pgo.GetComponent<RectTransform>();
             prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0, 0);
             prt.anchoredPosition = new Vector2(18, 6);
-            prt.sizeDelta = new Vector2(220, 220);
+            prt.sizeDelta = new Vector2(188, 188); // 상단 하늘색 테두리와 안 겹치게
             _portrait = pgo.AddComponent<Image>();
             _portrait.preserveAspect = true;
             _portrait.raycastTarget = false;

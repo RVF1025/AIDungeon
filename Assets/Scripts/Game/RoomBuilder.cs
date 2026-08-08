@@ -67,7 +67,7 @@ namespace AIDungeon.Game
             go.transform.position = center;
 
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFactory.TileFullRect(tile); // FullRect → Tiled 정상 동작(임포트 설정 불필요)
+            sr.sprite = SpriteFactory.Tile(tile); // 타일 meta가 FullRect라 Tiled 정상 동작
             sr.sortingOrder = sorting;
             sr.drawMode = SpriteDrawMode.Tiled;
 
