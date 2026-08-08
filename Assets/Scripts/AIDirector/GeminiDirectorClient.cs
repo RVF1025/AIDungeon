@@ -57,7 +57,7 @@ namespace AIDungeon.Director
         /// 사용: StartCoroutine(client.RequestDecision(profile, d => { ... }));
         /// </summary>
         public IEnumerator RequestDecision(PlayerProfile profile, int floor, string lastComp, string lastTopo,
-                                           Action<DirectorDecision> onResult)
+                                           DirectorPersona persona, Action<DirectorDecision> onResult)
         {
             // 1) 전술을 코드가 먼저 확정 (직전 층과 안 겹치게 변화 보장) → 프롬프트에 실어줌
             string comp = DirectorPolicy.CompositionAvoiding(profile, lastComp);
@@ -68,7 +68,7 @@ namespace AIDungeon.Director
             if (!string.IsNullOrEmpty(modelOverride))
                 url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
 
-            byte[] payload = Encoding.UTF8.GetBytes(BuildRequestBody(profile, comp, topo, diff));
+            byte[] payload = Encoding.UTF8.GetBytes(BuildRequestBody(profile, comp, topo, diff, persona.voice));
 
             using (var req = new UnityWebRequest(url, "POST"))
             {
@@ -94,7 +94,16 @@ namespace AIDungeon.Director
 
                 if (decision == null)
                 {
-                    decision = FallbackPresets.Build(profile);
+                    // 폴백도 페르소나 목소리로(전술은 이미 계산한 comp/topo/diff 사용)
+                    decision = new DirectorDecision
+                    {
+                        composition = comp,
+                        topology = topo,
+                        difficultyModifier = diff,
+                        tone = DirectorPolicy.CanonicalTone(profile),
+                        fromFallback = true,
+                    };
+                    decision.analysis = persona.Fallback(decision.tone);
                 }
                 else
                 {
@@ -109,7 +118,7 @@ namespace AIDungeon.Director
             }
         }
 
-        private string BuildRequestBody(PlayerProfile p, string comp, string topo, float diff)
+        private string BuildRequestBody(PlayerProfile p, string comp, string topo, float diff, string voice)
         {
             var c = CultureInfo.InvariantCulture;
             string userText =
@@ -118,7 +127,7 @@ namespace AIDungeon.Director
 
             var sb = new StringBuilder(1024);
             sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
-            AppendJsonString(sb, SystemInstruction);
+            AppendJsonString(sb, SystemInstruction + " " + voice);
             sb.Append("}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":");
             AppendJsonString(sb, userText);
             sb.Append("}]}],\"generationConfig\":{\"responseMimeType\":\"application/json\",\"responseSchema\":");

@@ -20,6 +20,7 @@ namespace AIDungeon.Game
         private Rigidbody2D _playerRb;
         private DirectorHud _hud;
         private PathSelectUI _select;
+        private DirectorPersona _persona;
 
         private int _floor = 1;
         private string _phase = "";
@@ -36,6 +37,9 @@ namespace AIDungeon.Game
             _playerHealth = playerHealth; _hud = hud;
             _playerRb = playerHealth.GetComponent<Rigidbody2D>();
             _select = gameObject.AddComponent<PathSelectUI>();
+            _persona = DirectorPersonas.Random(); // 이번 런의 디렉터
+            _hud?.SetPersona(_persona.name);
+            Debug.Log($"[Director] 이번 런: {_persona.name}");
             StartCoroutine(RunGame());
         }
 
@@ -53,6 +57,7 @@ namespace AIDungeon.Game
         private IEnumerator RunGame()
         {
             _current = IntroDecision();
+            _current.analysis = _persona.Intro(); // 인트로도 페르소나 목소리
             _lastComp = _current.composition; _lastTopo = _current.topology;
             _hud?.ShowDecision(_current);
 
@@ -69,7 +74,7 @@ namespace AIDungeon.Game
                 // 클리어 순간부터 AI 요청 시작(배너+선택 동안 레이턴시 은폐)
                 int nextFloor = _floor + 1;
                 DirectorDecision res = null; bool ready = false;
-                StartCoroutine(_client.RequestDecision(profile, nextFloor, _lastComp, _lastTopo,
+                StartCoroutine(_client.RequestDecision(profile, nextFloor, _lastComp, _lastTopo, _persona,
                     d => { res = d; ready = true; }));
 
                 _phase = $"{_floor}층 클리어!";

@@ -14,6 +14,9 @@ namespace AIDungeon.Game
     {
         private TMP_FontAsset _font;
         private TextMeshProUGUI _status, _tag, _analysis;
+        private string _personaName = "";
+
+        public void SetPersona(string n) => _personaName = n;
 
         private void Awake()
         {
@@ -106,7 +109,8 @@ namespace AIDungeon.Game
         public void ShowDecision(DirectorDecision d)
         {
             if (d == null) return;
-            _tag.text = $"{(d.fromFallback ? "[폴백]" : "[AI]")}   {d.composition} / {d.topology} / x{d.difficultyModifier:0.00} / {d.tone}";
+            string who = string.IsNullOrEmpty(_personaName) ? "" : $"◈ {_personaName}   ";
+            _tag.text = $"{who}{(d.fromFallback ? "[폴백]" : "[AI]")}   {d.composition} / {d.topology} / x{d.difficultyModifier:0.00} / {d.tone}";
             _analysis.text = string.IsNullOrWhiteSpace(d.analysis) ? "분석 중…" : $"“{d.analysis}”";
         }
     }
