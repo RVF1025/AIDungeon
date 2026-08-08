@@ -41,10 +41,8 @@ namespace AIDungeon.Director
             "(2) tone: 아래 넷 중 하나. " +
             "composition 의미 - kiter_pack:원거리 적들이 거리를 유지하며 근접 플레이어의 공격이 자기들에게 '닿지 못하게' 함(플레이어가 못 닿는다는 방향으로 서술), " +
             "rusher_pack:빠른근접으로 원거리플레이어 압박('순식간에 접근'), tank_bait:탱커 미끼로 저돌형 유인('벽/미끼'), balanced:균형. " +
-            "topology 의미 - encircle:사방에서 포위(넓은 방, 좁은 통로 아님), cover:엄폐물로 사선차단, open:탁 트인 개활지, corridor:좁은통로 1:1. " +
-            "절대 규칙: analysis는 위에서 주어진 composition과 topology 두 가지만 근거로 삼는다. " +
-            "주어지지 않은 다른 공간(엄폐물/복도/개활지/포위 등 해당 topology가 아닌 것)은 한 단어도 언급하지 마라. " +
-            "예) topology=corridor면 '좁은 통로/일렬'만, '엄폐물'·'개활지'·'포위' 언급 금지. topology=encircle이면 '포위/사방'만, '복도' 언급 금지. " +
+            "절대 규칙: 공간(방 형태)은 유저 메시지의 '이번 공간' 설명에 적힌 것만 묘사하라. " +
+            "거기에 없는 다른 방 형태는 한 단어도 언급하지 마라(특히 '이번 공간'이 엄폐물이 아니면 '엄폐물'이라는 단어를 절대 쓰지 마라). " +
             "tone - taunt:약점을 파고들며 도발, impressed:플레이어가 잘해 감탄, concern:플레이어가 고전해 자비, neutral:관찰. " +
             "avgHpPct가 낮으면 concern, 높으면 impressed 또는 taunt 성향.";
 
@@ -147,12 +145,27 @@ namespace AIDungeon.Director
             return false;
         }
 
+        // 이번 요청의 topology '한 개'만 유저 메시지에 실어준다(시스템 프롬프트엔 다른 방 형태 단어가
+        // 없으므로 모델이 '엄폐물' 같은 남의 방 단어를 복사할 여지 자체를 제거).
+        private static string TopologyBrief(string topo)
+        {
+            switch (topo)
+            {
+                case Topology.Encircle: return "사방에서 에워싸 도망칠 코너가 없다(넓은 방, 등 뒤에서도 튀어나옴). '사방/포위/퇴로 없음'으로만 묘사.";
+                case Topology.Cover:    return "기둥과 엄폐물이 사선을 끊는다. '엄폐물/기둥/시야 차단'으로만 묘사.";
+                case Topology.Open:     return "탁 트인 개활지, 숨을 곳이 없다. '개활지/탁 트임/노출'로만 묘사.";
+                case Topology.Corridor: return "좁은 통로가 1:1을 강요한다. '좁은 통로/일렬/한 명씩'으로만 묘사.";
+                default:                return "평범한 방.";
+            }
+        }
+
         private string BuildRequestBody(PlayerProfile p, string comp, string topo, float diff, string voice)
         {
             var c = CultureInfo.InvariantCulture;
             string userText =
                 $"{p.ToPromptLine()} | 결정된 전술: composition={comp}, topology={topo}, " +
-                string.Format(c, "difficultyModifier={0:0.00}", diff);
+                string.Format(c, "difficultyModifier={0:0.00}", diff) +
+                " | 이번 공간: " + TopologyBrief(topo);
 
             var sb = new StringBuilder(1024);
             sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
