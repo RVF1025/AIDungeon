@@ -52,6 +52,7 @@ namespace AIDungeon.Game
             TiledQuad(root, WallTile, center + new Vector2(half.x + t * 0.5f, 0), t, half.y * 2f, 0, true);
             TiledQuad(root, WallTile, center + new Vector2(-half.x - t * 0.5f, 0), t, half.y * 2f, 0, true);
 
+            DecorateFloor(root, center, half, spawn);
             if (d.topology == Topology.Cover) BuildPillars(root, center, half, spawn);
 
             return new Room { root = root, center = center, half = half, playerSpawn = spawn };
@@ -82,6 +83,30 @@ namespace AIDungeon.Game
                 go.AddComponent<Solid>();
             }
             return go;
+        }
+
+        // 바닥 위에 잔해/돌 장식을 흩뿌려 단조로움 완화(콜라이더 없음, 소량).
+        private static readonly int[] Decor = { 12, 24 }; // 돌 / 잔해
+        private static void DecorateFloor(GameObject root, Vector2 center, Vector2 half, Vector2 spawn)
+        {
+            int count = Mathf.Clamp(Mathf.RoundToInt(half.x * half.y * 4f / 22f), 4, 40);
+            for (int k = 0; k < count; k++)
+            {
+                Vector2 p = center + new Vector2(
+                    Random.Range(-half.x + 0.6f, half.x - 0.6f),
+                    Random.Range(-half.y + 0.6f, half.y - 0.6f));
+                if (Vector2.Distance(p, spawn) < 1.5f) continue; // 스폰 발밑은 비움
+
+                var go = new GameObject("Decor");
+                go.transform.SetParent(root.transform, false);
+                go.transform.position = p;
+                go.transform.rotation = Quaternion.Euler(0, 0, 90f * Random.Range(0, 4)); // 회전 변화
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = SpriteFactory.Tile(Decor[Random.Range(0, Decor.Length)]);
+                sr.sortingOrder = -9; // 바닥(-10) 위, 캐릭터 아래
+                float s = SpriteFactory.ScaleFor(sr.sprite, Random.Range(0.6f, 0.9f));
+                go.transform.localScale = new Vector3(s, s, 1f);
+            }
         }
 
         private static void BuildPillars(GameObject root, Vector2 center, Vector2 half, Vector2 spawn)
