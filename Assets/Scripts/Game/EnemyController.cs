@@ -24,6 +24,7 @@ namespace AIDungeon.Game
         private Transform _weapon; // 원거리몹이 드는 지팡이(시각)
         private float _diff = 1f;
         private bool _elite;
+        private static readonly Color EliteTint = new(1f, 0.78f, 0.32f); // 정예 금빛(방패 등)
         private const float ShieldHp = 70f;
 
         // 근접 러시: 예비동작(멈칫) 후 빠른 돌진
@@ -116,7 +117,7 @@ namespace AIDungeon.Game
             var go = new GameObject("Shield");
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Tile(102); // Kenney 방패
-            sr.color = Color.white;
+            sr.color = _elite ? EliteTint : Color.white; // 정예 방패병은 방패도 금색
             sr.sortingOrder = 3; // 몸통(2) 위
             float ss = SpriteFactory.ScaleFor(sr.sprite, 0.9f);
             go.transform.localScale = new Vector3(ss, ss, 1f);

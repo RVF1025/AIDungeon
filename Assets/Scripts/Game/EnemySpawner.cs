@@ -178,10 +178,11 @@ namespace AIDungeon.Game
                 default: tile = 96; baseHp = 60f; break;               // 기사(탱커, 방패로 버팀 → 본체 HP 낮음)
             }
 
-            // 정예: HP·데미지 상승, 크게, 금빛 틴트로 식별.
+            // 정예: HP·데미지 상승, 금빛 틴트로 식별. 크기 확대는 근접 정예만.
             float hp = baseHp * diff * (elite ? EliteHpMul : 1f);
             float dmgScale = diff * (elite ? EliteDmgMul : 1f);
-            float worldSize = elite ? EliteWorldSize : 1.0f;
+            bool bigger = elite && type == EnemyType.Melee;
+            float worldSize = bigger ? EliteWorldSize : 1.0f;
 
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Tile(tile);
@@ -191,7 +192,7 @@ namespace AIDungeon.Game
             go.transform.localScale = new Vector3(scale, scale, 1f);
 
             var col2d = go.AddComponent<CircleCollider2D>();
-            col2d.radius = (elite ? 0.5f : 0.35f) / scale;
+            col2d.radius = (bigger ? 0.5f : 0.35f) / scale;
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
             rb.freezeRotation = true;
