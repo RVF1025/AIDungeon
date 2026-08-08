@@ -23,6 +23,7 @@ namespace AIDungeon.Game
         private Transform _shield; // 탱커가 플레이어를 향해 드는 방패(부술 수 있음)
         private Transform _weapon; // 원거리몹이 드는 지팡이(시각)
         private float _diff = 1f;
+        private bool _elite;
         private const float ShieldHp = 70f;
 
         // 근접 러시: 예비동작(멈칫) 후 빠른 돌진
@@ -43,12 +44,13 @@ namespace AIDungeon.Game
         private bool _active;
         public Color RealColor { get; private set; }
 
-        public void Init(EnemyType type, float hp, float dmgScale, Transform player, Health playerHealth)
+        public void Init(EnemyType type, float hp, float dmgScale, Transform player, Health playerHealth, bool elite = false)
         {
             this.type = type;
             _player = player;
             _playerHealth = playerHealth;
             _diff = dmgScale;
+            _elite = elite;
 
             _rb = GetComponent<Rigidbody2D>();
             _health = GetComponent<Health>();
@@ -256,7 +258,7 @@ namespace AIDungeon.Game
             {
                 if (dist <= _shootRange && _shootTimer <= 0f)
                 {
-                    if (Random.value < 0.35f) // 3발 산탄
+                    if (_elite && Random.value < 0.35f) // 3발 산탄은 정예만
                     {
                         _shootTimer = _shootCooldown * 1.5f;
                         FireProjectile(Rotate(dir, -15f));

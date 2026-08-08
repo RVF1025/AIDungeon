@@ -199,7 +199,7 @@ namespace AIDungeon.Game
             rb.interpolation = RigidbodyInterpolation2D.Interpolate; // 지터 방지
 
             go.AddComponent<Health>();
-            go.AddComponent<EnemyController>().Init(type, hp, dmgScale, _player, _playerHealth);
+            go.AddComponent<EnemyController>().Init(type, hp, dmgScale, _player, _playerHealth, elite);
             go.AddComponent<HitReaction>(); // 색/컴포넌트 세팅 후 부착
             go.AddComponent<HealthBar>(); // 적: 피해 입었을 때만 표시
         }
