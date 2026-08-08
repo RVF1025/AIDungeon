@@ -120,7 +120,7 @@ namespace AIDungeon.Game
             _spawner.Configure(_room.center, _room.half);
 
             _logger.ResetFloor();
-            _spawner.SpawnWave(decision, EnemyCount(_floor));
+            _spawner.SpawnWave(decision, EnemyCount(_floor), _floor);
             _phase = $"{_floor}층 — 전투";
             yield return null; // 스폰 반영
 

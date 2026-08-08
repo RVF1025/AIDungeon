@@ -31,14 +31,19 @@ namespace AIDungeon.Game
             roomHalf = half;
         }
 
-        public void SpawnWave(DirectorDecision d, int count)
+        public void SpawnWave(DirectorDecision d, int count, int floor)
         {
             var types = RollTypes(d.composition, d.topology, count);
 
             if (d.topology == Topology.Corridor)
-            {
                 // 통로: 근접 없음. 좌측(플레이어 쪽)부터 탱커 → 원거리 순 진형
                 types.Sort((a, b) => RoleOrder(a).CompareTo(RoleOrder(b)));
+
+            // 정예(챔피언) 지정: 깊은 층·높은 난이도일수록 더 많이(최소 1마리는 일반 유지).
+            var eliteSet = PickEliteIndices(types.Count, EliteCount(d, floor, types.Count));
+
+            if (d.topology == Topology.Corridor)
+            {
                 float x0 = roomCenter.x + roomHalf.x * 0.2f;
                 float x1 = roomCenter.x + roomHalf.x - 2f;
                 for (int i = 0; i < types.Count; i++)
@@ -46,13 +51,37 @@ namespace AIDungeon.Game
                     float t = types.Count <= 1 ? 0.5f : (float)i / (types.Count - 1);
                     float x = Mathf.Lerp(x0, x1, t);
                     float y = roomCenter.y + ((i % 2 == 0) ? 1f : -1f) * Random.Range(0f, roomHalf.y - 0.8f);
-                    Spawn(types[i], Clamp(new Vector2(x, y)), d.difficultyModifier);
+                    Spawn(types[i], Clamp(new Vector2(x, y)), d.difficultyModifier, eliteSet.Contains(i));
                 }
                 return;
             }
 
             for (int i = 0; i < types.Count; i++)
-                Spawn(types[i], SpawnPos(d.topology, i, count), d.difficultyModifier);
+                Spawn(types[i], SpawnPos(d.topology, i, count), d.difficultyModifier, eliteSet.Contains(i));
+        }
+
+        // 정예 수: 3층부터 1마리, 난이도 1.35↑(정예 전투 경로 등)면 +1. 최대 3, 최소 한 마리는 일반.
+        private static int EliteCount(DirectorDecision d, int floor, int total)
+        {
+            int n = 0;
+            if (floor >= 3) n = 1;
+            if (d.difficultyModifier >= 1.35f) n++;
+            return Mathf.Clamp(n, 0, Mathf.Min(3, Mathf.Max(0, total - 1)));
+        }
+
+        private static HashSet<int> PickEliteIndices(int total, int eliteCount)
+        {
+            var set = new HashSet<int>();
+            if (eliteCount <= 0 || total <= 0) return set;
+            var pool = new List<int>(total);
+            for (int i = 0; i < total; i++) pool.Add(i);
+            for (int k = 0; k < eliteCount && pool.Count > 0; k++)
+            {
+                int j = Random.Range(0, pool.Count);
+                set.Add(pool[j]);
+                pool.RemoveAt(j);
+            }
+            return set;
         }
 
         // topology별 배치 규칙: corridor=근접 제외, encircle=탱커 제외
@@ -132,9 +161,13 @@ namespace AIDungeon.Game
             Mathf.Clamp(v.x, roomCenter.x - roomHalf.x, roomCenter.x + roomHalf.x),
             Mathf.Clamp(v.y, roomCenter.y - roomHalf.y, roomCenter.y + roomHalf.y));
 
-        private void Spawn(EnemyType type, Vector2 pos, float diff)
+        // 정예(챔피언) 강화 배수/외형.
+        private const float EliteHpMul = 2.6f, EliteDmgMul = 1.6f, EliteWorldSize = 1.5f;
+        private static readonly Color EliteTint = new(1f, 0.78f, 0.32f); // 금빛
+
+        private void Spawn(EnemyType type, Vector2 pos, float diff, bool elite)
         {
-            var go = new GameObject($"Enemy_{type}");
+            var go = new GameObject(elite ? $"Elite_{type}" : $"Enemy_{type}");
             go.transform.position = pos;
 
             int tile; float baseHp;
@@ -145,15 +178,20 @@ namespace AIDungeon.Game
                 default: tile = 96; baseHp = 60f; break;               // 기사(탱커, 방패로 버팀 → 본체 HP 낮음)
             }
 
+            // 정예: HP·데미지 상승, 크게, 금빛 틴트로 식별.
+            float hp = baseHp * diff * (elite ? EliteHpMul : 1f);
+            float dmgScale = diff * (elite ? EliteDmgMul : 1f);
+            float worldSize = elite ? EliteWorldSize : 1.0f;
+
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Tile(tile);
-            sr.color = Color.white;
+            sr.color = elite ? EliteTint : Color.white; // Init이 이 색을 RealColor로 저장
             sr.sortingOrder = 2;
-            float scale = SpriteFactory.ScaleFor(sr.sprite, 1.0f);
+            float scale = SpriteFactory.ScaleFor(sr.sprite, worldSize);
             go.transform.localScale = new Vector3(scale, scale, 1f);
 
             var col2d = go.AddComponent<CircleCollider2D>();
-            col2d.radius = 0.35f / scale;
+            col2d.radius = (elite ? 0.5f : 0.35f) / scale;
             var rb = go.AddComponent<Rigidbody2D>();
             rb.gravityScale = 0f;
             rb.freezeRotation = true;
@@ -161,7 +199,7 @@ namespace AIDungeon.Game
             rb.interpolation = RigidbodyInterpolation2D.Interpolate; // 지터 방지
 
             go.AddComponent<Health>();
-            go.AddComponent<EnemyController>().Init(type, baseHp * diff, diff, _player, _playerHealth);
+            go.AddComponent<EnemyController>().Init(type, hp, dmgScale, _player, _playerHealth);
             go.AddComponent<HitReaction>(); // 색/컴포넌트 세팅 후 부착
             go.AddComponent<HealthBar>(); // 적: 피해 입었을 때만 표시
         }
