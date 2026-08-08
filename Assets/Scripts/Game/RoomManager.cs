@@ -71,36 +71,40 @@ namespace AIDungeon.Game
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
 
-                // 클리어 순간부터 AI 요청 시작(배너+선택 동안 레이턴시 은폐)
+                // 클리어 순간부터 '선택지별' AI 대사를 병렬 선요청(고르는 즉시 대기 없이 사용).
+                // 정예 전투는 상향된 난이도를 미리 반영해 요청 → 대사가 정예 등장을 정확히 반영.
                 int nextFloor = _floor + 1;
-                DirectorDecision res = null; bool ready = false;
-                StartCoroutine(_client.RequestDecision(profile, nextFloor, _lastComp, _lastTopo, _persona,
-                    d => { res = d; ready = true; }));
+                var options = BuildOptions();
+                var results = new DirectorDecision[options.Count];
+                var ready = new bool[options.Count];
+                float baseDiff = DirectorPolicy.CanonicalDifficulty(profile);
+                for (int i = 0; i < options.Count; i++)
+                {
+                    int oi = i;
+                    float diffOv = options[i].kind == PathKind.Elite
+                        ? Mathf.Clamp(baseDiff * 1.3f, DirectorPolicy.EliteDiffThreshold, 1.6f)
+                        : float.NaN; // 일반/휴식은 표준 난이도
+                    StartCoroutine(_client.RequestDecision(profile, nextFloor, _lastComp, _lastTopo, _persona,
+                        d => { results[oi] = d; ready[oi] = true; }, diffOv));
+                }
 
                 _phase = $"{_floor}층 클리어!";
                 yield return ShowClearBanner();
 
-                var options = BuildOptions();
                 int idx = 0;
                 _phase = "갈림길 선택";
-                yield return _select.Choose(options, "다음 갈림길을 고르시오.", i => idx = i);
+                yield return _select.Choose(options, _persona.Fork(), i => idx = i); // 갈림길 대사는 로컬(즉시)
 
-                // === 로딩 화면 표시 + 대사 대기(최소 표시시간 보장, 방은 RunCombat에서 준비되면 해제) ===
+                // === 로딩 화면 표시 + 선택한 선택지의 대사 대기(최소 표시시간 보장) ===
                 _phase = "AI Director 분석 중...";
                 if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
                 float t0 = Time.time;
-                while (!ready || Time.time - t0 < MinLoadSeconds) yield return null;
-                var decision = res ?? FallbackPresets.Build(profile);
+                while (!ready[idx] || Time.time - t0 < MinLoadSeconds) yield return null;
+                var decision = results[idx] ?? FallbackPresets.Build(profile);
 
-                switch (options[idx].kind)
-                {
-                    case PathKind.Rest:
-                        _playerHealth.Heal(_playerHealth.maxHp * 0.4f);
-                        break;
-                    case PathKind.Elite:
-                        decision.difficultyModifier = Mathf.Clamp(decision.difficultyModifier * 1.3f, 0.8f, 1.6f);
-                        break;
-                }
+                if (options[idx].kind == PathKind.Rest)
+                    _playerHealth.Heal(_playerHealth.maxHp * 0.4f);
+                // 정예 전투 난이도는 이미 대사에 반영돼 있음(선요청 시 상향된 difficultyModifier 사용).
 
                 _current = decision;
                 _lastComp = _current.composition; _lastTopo = _current.topology;

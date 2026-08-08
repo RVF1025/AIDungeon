@@ -58,13 +58,17 @@ namespace AIDungeon.Director
         /// 사용: StartCoroutine(client.RequestDecision(profile, d => { ... }));
         /// </summary>
         public IEnumerator RequestDecision(PlayerProfile profile, int floor, string lastComp, string lastTopo,
-                                           DirectorPersona persona, Action<DirectorDecision> onResult)
+                                           DirectorPersona persona, Action<DirectorDecision> onResult,
+                                           float diffOverride = float.NaN)
         {
             // 1) 전술을 코드가 먼저 확정 (직전 층과 안 겹치게 변화 보장) → 프롬프트에 실어줌
+            // diffOverride: 갈림길 선택지별 난이도 사전 반영(예: 정예 전투는 이미 상향된 값으로 요청).
             string comp = DirectorPolicy.CompositionAvoiding(profile, lastComp);
             string topo = DirectorPolicy.ChooseTopologyAvoiding(profile, floor, lastTopo);
-            float diff = DirectorPolicy.CanonicalDifficulty(profile);
-            bool elite = DirectorPolicy.WillSpawnElite(floor, diff); // 정예 등장 여부(≈3층부터)
+            float diff = Mathf.Clamp(
+                float.IsNaN(diffOverride) ? DirectorPolicy.CanonicalDifficulty(profile) : diffOverride,
+                0.8f, 1.6f);
+            bool elite = DirectorPolicy.WillSpawnElite(floor, diff); // 정예 등장 여부(≈3층부터 또는 고난이도)
 
             string url = proxyUrl;
             if (!string.IsNullOrEmpty(modelOverride))
