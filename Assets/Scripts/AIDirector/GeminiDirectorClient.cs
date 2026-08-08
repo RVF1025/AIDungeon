@@ -173,6 +173,11 @@ namespace AIDungeon.Director
                 string.Format(c, "difficultyModifier={0:0.00}", diff) +
                 " | 이번 공간: " + TopologyBrief(topo);
 
+            // kiter_pack은 '거리 싸움'이 핵심. 방 형태(엄폐물/기둥 등)를 끌어들여 모순내지 말고
+            // 사거리·닿지 못함에만 집중시킨다(모델이 원거리→엄폐물로 새는 경향 차단).
+            if (comp == Composition.KiterPack)
+                userText += " | 지시: 이번 대사는 방 형태를 언급하지 말고 오직 '거리/사거리/네 공격이 닿지 못함'에만 집중하라.";
+
             var sb = new StringBuilder(1024);
             sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
             AppendJsonString(sb, SystemInstruction + " " + voice);
