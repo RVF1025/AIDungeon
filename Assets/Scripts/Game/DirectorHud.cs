@@ -15,8 +15,31 @@ namespace AIDungeon.Game
         private TMP_FontAsset _font;
         private TextMeshProUGUI _status, _tag, _analysis;
         private string _personaName = "";
+        private Image _portrait;
+        private Sprite _pTaunt, _pImpressed, _pConcern, _pNeutral;
+        private bool _hasPortrait;
 
-        public void SetPersona(string n) => _personaName = n;
+        /// <summary>페르소나 지정 + 초상(Resources/Portraits/{id}.png, 2x2 그리드) 로드.</summary>
+        public void SetPersona(DirectorPersona persona)
+        {
+            _personaName = persona.name;
+            LoadPortraits(persona.id);
+        }
+
+        private void LoadPortraits(string id)
+        {
+            _hasPortrait = false;
+            var tex = Resources.Load<Texture2D>($"Portraits/{id}");
+            if (tex == null) { if (_portrait != null) _portrait.enabled = false; return; }
+
+            int hw = tex.width / 2, hh = tex.height / 2; // Unity 텍스처 좌표: (0,0)=좌하단
+            Sprite Slice(int x, int y) => Sprite.Create(tex, new Rect(x, y, hw, hh), new Vector2(0.5f, 0.5f), 100f);
+            _pTaunt = Slice(0, hh);       // 좌상: 비웃음
+            _pImpressed = Slice(hw, hh);  // 우상: 놀람
+            _pConcern = Slice(0, 0);      // 좌하: 걱정
+            _pNeutral = Slice(hw, 0);     // 우하: 무표정
+            _hasPortrait = true;
+        }
 
         private void Awake()
         {
@@ -56,12 +79,24 @@ namespace AIDungeon.Game
                 new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(1500, 210),
                 new Color(0.05f, 0.06f, 0.12f, 0.82f));
 
+            // 좌측 초상(패널 위로 살짝 솟게). 초상 로드 전엔 숨김.
+            var pgo = new GameObject("Portrait", typeof(RectTransform));
+            pgo.transform.SetParent(panel, false);
+            var prt = pgo.GetComponent<RectTransform>();
+            prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0, 0);
+            prt.anchoredPosition = new Vector2(18, 6);
+            prt.sizeDelta = new Vector2(220, 220);
+            _portrait = pgo.AddComponent<Image>();
+            _portrait.preserveAspect = true;
+            _portrait.raycastTarget = false;
+            _portrait.enabled = false;
+
             _tag = MakeText(panel, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1),
-                new Vector2(28, -14), new Vector2(-56, 40), 26, TextAlignmentOptions.TopLeft);
+                new Vector2(260, -14), new Vector2(-290, 40), 26, TextAlignmentOptions.TopLeft);
             _tag.color = new Color(0.55f, 0.8f, 1f);
 
             _analysis = MakeText(panel, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0, 1),
-                new Vector2(28, -56), new Vector2(-56, -70), 42, TextAlignmentOptions.TopLeft);
+                new Vector2(260, -56), new Vector2(-290, -70), 42, TextAlignmentOptions.TopLeft);
 
             // AI 전용 프레임 느낌의 상단 테두리(설계 4장: 다른 UI와 구분되는 색/테두리)
             var border = MakePanel(panel, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1),
@@ -112,6 +147,18 @@ namespace AIDungeon.Game
             string who = string.IsNullOrEmpty(_personaName) ? "" : $"감독: {_personaName}   ";
             _tag.text = $"{who}{(d.fromFallback ? "[폴백]" : "[AI]")}   {d.composition} / {d.topology} / x{d.difficultyModifier:0.00} / {d.tone}";
             _analysis.text = string.IsNullOrWhiteSpace(d.analysis) ? "분석 중..." : $"\"{d.analysis}\"";
+
+            if (_hasPortrait && _portrait != null)
+            {
+                _portrait.sprite = d.tone switch
+                {
+                    Tone.Taunt => _pTaunt,
+                    Tone.Impressed => _pImpressed,
+                    Tone.Concern => _pConcern,
+                    _ => _pNeutral,
+                };
+                _portrait.enabled = true;
+            }
         }
     }
 }

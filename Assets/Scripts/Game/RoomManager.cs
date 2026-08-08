@@ -38,7 +38,7 @@ namespace AIDungeon.Game
             _playerRb = playerHealth.GetComponent<Rigidbody2D>();
             _select = gameObject.AddComponent<PathSelectUI>();
             _persona = DirectorPersonas.Random(); // 이번 런의 디렉터
-            _hud?.SetPersona(_persona.name);
+            _hud?.SetPersona(_persona);
             Debug.Log($"[Director] 이번 런: {_persona.name}");
             StartCoroutine(RunGame());
         }
