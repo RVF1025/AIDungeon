@@ -38,11 +38,12 @@ namespace AIDungeon.Director
         private const string SystemInstruction =
             "당신은 탑다운 2D 로그라이크의 AI 던전 디렉터 캐릭터입니다. 다음 스테이지의 전술은 이미 결정되어 주어집니다. " +
             "당신의 일은 두 가지: (1) analysis: 그 전술을 은근히 암시하는, 플레이어를 향한 캐릭터성 있는 한국어 한 문장. " +
+            "반드시 짧고 간결하게(공백 포함 40자 이내, 한 문장). 미사여구·수식어를 늘어놓지 마라. " +
             "(2) tone: 아래 넷 중 하나. " +
             "composition 의미 - kiter_pack:원거리 적들이 거리를 유지하며 근접 플레이어의 공격이 자기들에게 '닿지 못하게' 함(플레이어가 못 닿는다는 방향으로 서술), " +
             "rusher_pack:빠른근접으로 원거리플레이어 압박('순식간에 접근'), tank_bait:탱커 미끼로 저돌형 유인('벽/미끼'), balanced:균형. " +
-            "절대 규칙: 방의 형태·지형은 유저 메시지의 '이번 공간' 설명에 적힌 표현만 사용하라. " +
-            "그 설명에 없는 다른 지형 단어는 만들어내지 마라. " +
+            "절대 규칙: 방의 형태·지형은 유저 메시지의 '이번 공간' 키워드에 맞춰라. 거기 없는 다른 지형은 만들어내지 마라. " +
+            "단, '이번 공간' 설명 문구를 그대로 베끼지 말고 캐릭터 말투로 짧게 재해석하라. " +
             "tone - taunt:약점을 파고들며 도발, impressed:플레이어가 잘해 감탄, concern:플레이어가 고전해 자비, neutral:관찰. " +
             "avgHpPct가 낮으면 concern, 높으면 impressed 또는 taunt 성향.";
 
@@ -153,11 +154,12 @@ namespace AIDungeon.Director
         {
             switch (topo)
             {
-                case Topology.Encircle: return "넓은 방에서 적이 둘러싸 도망칠 코너가 없다(등 뒤에서도 튀어나옴). 핵심: 포위, 퇴로 없음.";
-                case Topology.Cover:    return "기둥과 엄폐물이 곳곳에 서서 사선을 끊는다. 핵심: 엄폐물, 시야 차단.";
-                case Topology.Open:     return "탁 트인 개활지라 숨을 곳이 하나도 없다. 핵심: 개활지, 완전 노출.";
-                case Topology.Corridor: return "폭이 좁아 한 번에 한 명씩만 맞붙는 통로. 핵심: 좁은 통로, 1:1.";
-                default:                return "평범한 방.";
+                // 짧은 키워드만. (모델이 문장을 통째로 베끼지 못하도록 서술문이 아닌 태그로 제공)
+                case Topology.Encircle: return "포위(넓은 방, 사방이 적, 퇴로 없음)";
+                case Topology.Cover:    return "엄폐(기둥·차폐물로 시야/사선 차단)";
+                case Topology.Open:     return "개활지(탁 트임, 숨을 곳 없음)";
+                case Topology.Corridor: return "좁은 통로(일렬, 1:1)";
+                default:                return "일반 방";
             }
         }
 
