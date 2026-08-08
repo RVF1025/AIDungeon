@@ -41,7 +41,8 @@ namespace AIDungeon.Director
             "(2) tone: 아래 넷 중 하나. " +
             "composition 의미 - kiter_pack:원거리로 근접플레이어를 사거리 밖에서 농락(대사에 '거리/닿지못함'), " +
             "rusher_pack:빠른근접으로 원거리플레이어 압박('순식간에 접근'), tank_bait:탱커 미끼로 저돌형 유인('벽/미끼'), balanced:균형. " +
-            "topology 의미 - encircle:포위/도망갈곳없음, cover:엄폐물로 사선차단, open:개활지, corridor:좁은통로 1:1. " +
+            "topology 의미 - encircle:사방에서 포위(넓은 방, 좁은 통로 아님), cover:엄폐물로 사선차단, open:탁 트인 개활지, corridor:좁은통로 1:1. " +
+            "중요: 주어진 topology의 공간만 언급하라. 주어지지 않은 다른 방 형태(예: encircle인데 '좁은 복도', open인데 '엄폐물')는 절대 언급 금지. " +
             "tone - taunt:약점을 파고들며 도발, impressed:플레이어가 잘해 감탄, concern:플레이어가 고전해 자비, neutral:관찰. " +
             "avgHpPct가 낮으면 concern, 높으면 impressed 또는 taunt 성향.";
 
