@@ -58,7 +58,10 @@ namespace AIDungeon.Director
                 "흥미롭군요. 좀 더 지켜보죠.",
                 "글쎄요, 판단은 아직 이르군요.",
                 "당신의 수를 헤아리는 중입니다." },
-            intro: new[] { "어서 오십시오. 당신의 춤을 감상하죠." });
+            intro: new[] {
+                "어서 오십시오. 당신의 춤을 감상하죠.",
+                "환영합니다. 부디 지루하게 만들지는 마시길.",
+                "무대는 마련해 두었습니다. 실력을 보여주시죠." });
 
         public static readonly DirectorPersona Jester = new(
             "jester", "광기의 어릿광대",
@@ -79,7 +82,10 @@ namespace AIDungeon.Director
                 "자, 다음 장난은 뭘로 할까?",
                 "히히, 주사위는 이미 굴렸어~",
                 "음~ 뭐가 튀어나올지 나도 몰라~" },
-            intro: new[] { "히히히! 새 장난감이다! 신나게 놀아보자~" });
+            intro: new[] {
+                "히히히! 새 장난감이다! 신나게 놀아보자~",
+                "어서 와~ 오늘은 뭘로 울려줄까~?",
+                "짜잔~! 놀이 시간이야, 준비됐어~?" });
 
         public static readonly DirectorPersona Executioner = new(
             "executioner", "처형자",
@@ -100,7 +106,10 @@ namespace AIDungeon.Director
                 "다음 제물을 골라라.",
                 "죽음은 기다린다.",
                 "네 최후를 준비하마." },
-            intro: new[] { "들어와라. 무덤은 준비됐다." });
+            intro: new[] {
+                "들어와라. 무덤은 준비됐다.",
+                "어서 와라. 오래 걸리지 않는다.",
+                "네 이름을 명부에 적어두마." });
 
         private static readonly DirectorPersona[] All = { Aristocrat, Jester, Executioner };
 

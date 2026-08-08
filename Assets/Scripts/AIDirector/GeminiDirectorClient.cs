@@ -41,8 +41,8 @@ namespace AIDungeon.Director
             "(2) tone: 아래 넷 중 하나. " +
             "composition 의미 - kiter_pack:원거리 적들이 거리를 유지하며 근접 플레이어의 공격이 자기들에게 '닿지 못하게' 함(플레이어가 못 닿는다는 방향으로 서술), " +
             "rusher_pack:빠른근접으로 원거리플레이어 압박('순식간에 접근'), tank_bait:탱커 미끼로 저돌형 유인('벽/미끼'), balanced:균형. " +
-            "절대 규칙: 공간(방 형태)은 유저 메시지의 '이번 공간' 설명에 적힌 것만 묘사하라. " +
-            "거기에 없는 다른 방 형태는 한 단어도 언급하지 마라(특히 '이번 공간'이 엄폐물이 아니면 '엄폐물'이라는 단어를 절대 쓰지 마라). " +
+            "절대 규칙: 방의 형태·지형은 유저 메시지의 '이번 공간' 설명에 적힌 표현만 사용하라. " +
+            "그 설명에 없는 다른 지형 단어는 만들어내지 마라. " +
             "tone - taunt:약점을 파고들며 도발, impressed:플레이어가 잘해 감탄, concern:플레이어가 고전해 자비, neutral:관찰. " +
             "avgHpPct가 낮으면 concern, 높으면 impressed 또는 taunt 성향.";
 
@@ -131,13 +131,15 @@ namespace AIDungeon.Director
         private static bool MentionsForeignSpace(string analysis, string topo)
         {
             if (string.IsNullOrEmpty(analysis)) return false;
+            // '사방'은 포위·탁트임 양쪽에 쓰여 애매하므로 필터에서 제외(포위/에워/둘러싸로 판별).
+            // encircle은 '넓은 방'이라 개활지/탁 트임 언급이 모순 아님 → 금지 안 함.
             string[] foreign;
             switch (topo)
             {
-                case Topology.Corridor: foreign = new[] { "엄폐", "개활", "포위", "사방", "탁 트" }; break;
-                case Topology.Encircle: foreign = new[] { "엄폐", "복도", "통로", "개활", "탁 트" }; break;
-                case Topology.Cover:    foreign = new[] { "복도", "통로", "개활", "포위", "사방", "탁 트" }; break;
-                case Topology.Open:     foreign = new[] { "엄폐", "복도", "통로", "포위", "사방" }; break;
+                case Topology.Corridor: foreign = new[] { "엄폐", "개활", "탁 트", "포위", "에워", "둘러싸" }; break;
+                case Topology.Encircle: foreign = new[] { "엄폐", "복도", "통로", "일렬" }; break;
+                case Topology.Cover:    foreign = new[] { "복도", "통로", "개활", "탁 트", "포위", "에워" }; break;
+                case Topology.Open:     foreign = new[] { "엄폐", "복도", "통로", "일렬" }; break;
                 default: return false;
             }
             foreach (var w in foreign)
@@ -151,10 +153,10 @@ namespace AIDungeon.Director
         {
             switch (topo)
             {
-                case Topology.Encircle: return "사방에서 에워싸 도망칠 코너가 없다(넓은 방, 등 뒤에서도 튀어나옴). '사방/포위/퇴로 없음'으로만 묘사.";
-                case Topology.Cover:    return "기둥과 엄폐물이 사선을 끊는다. '엄폐물/기둥/시야 차단'으로만 묘사.";
-                case Topology.Open:     return "탁 트인 개활지, 숨을 곳이 없다. '개활지/탁 트임/노출'로만 묘사.";
-                case Topology.Corridor: return "좁은 통로가 1:1을 강요한다. '좁은 통로/일렬/한 명씩'으로만 묘사.";
+                case Topology.Encircle: return "넓은 방에서 적이 둘러싸 도망칠 코너가 없다(등 뒤에서도 튀어나옴). 핵심: 포위, 퇴로 없음.";
+                case Topology.Cover:    return "기둥과 엄폐물이 곳곳에 서서 사선을 끊는다. 핵심: 엄폐물, 시야 차단.";
+                case Topology.Open:     return "탁 트인 개활지라 숨을 곳이 하나도 없다. 핵심: 개활지, 완전 노출.";
+                case Topology.Corridor: return "폭이 좁아 한 번에 한 명씩만 맞붙는 통로. 핵심: 좁은 통로, 1:1.";
                 default:                return "평범한 방.";
             }
         }
