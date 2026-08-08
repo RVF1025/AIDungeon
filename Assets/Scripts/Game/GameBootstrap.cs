@@ -65,6 +65,7 @@ namespace AIDungeon.Game
             rb.gravityScale = 0f;
             rb.freezeRotation = true;
             rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate; // 물리 스텝 사이 보간(지터 방지)
 
             health = go.AddComponent<Health>();
             health.Init(Team.Player, 100f);
