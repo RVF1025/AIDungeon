@@ -109,9 +109,9 @@ namespace AIDungeon.Game
         public void ShowDecision(DirectorDecision d)
         {
             if (d == null) return;
-            string who = string.IsNullOrEmpty(_personaName) ? "" : $"◈ {_personaName}   ";
+            string who = string.IsNullOrEmpty(_personaName) ? "" : $"감독: {_personaName}   ";
             _tag.text = $"{who}{(d.fromFallback ? "[폴백]" : "[AI]")}   {d.composition} / {d.topology} / x{d.difficultyModifier:0.00} / {d.tone}";
-            _analysis.text = string.IsNullOrWhiteSpace(d.analysis) ? "분석 중…" : $"“{d.analysis}”";
+            _analysis.text = string.IsNullOrWhiteSpace(d.analysis) ? "분석 중..." : $"\"{d.analysis}\"";
         }
     }
 }
