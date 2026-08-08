@@ -13,13 +13,14 @@ namespace AIDungeon.Game
     }
 
     /// <summary>
-    /// AI Director의 topology를 방 구조로 만든다. 바닥/벽은 Kenney Tiny Dungeon 타일로 깔고,
-    /// 벽 타일이 곧 콜라이더(Solid)다. cover면 기둥 배치.
+    /// AI Director의 topology를 방 구조로 만든다. 바닥/벽은 Kenney 타일을 SpriteRenderer의
+    /// Tiled 모드로 "반복" 렌더 → 방당 오브젝트 몇 개면 됨(수백 개 생성 시 WebGL 메모리 폭발 방지).
+    /// 벽 4스트립이 콜라이더(Solid). cover면 기둥.
+    /// 전제: 타일 스프라이트 Mesh Type = Full Rect (Tiled 모드 요구; 아니어도 크래시는 안 남).
     /// </summary>
     public static class RoomBuilder
     {
         private const int FloorTile = 0, WallTile = 40, PillarTile = 28;
-        private const float TileSize = 1.0f;
 
         public static Room Build(DirectorDecision d, int floor)
         {
@@ -41,65 +42,51 @@ namespace AIDungeon.Game
                     half = new Vector2(12f, 7f); spawn = center; break;
             }
 
-            BuildFloor(root, center, half);
-            BuildWalls(root, center, half);
+            // 바닥(반복 렌더 1개)
+            TiledQuad(root, FloorTile, center, half.x * 2f, half.y * 2f, -10, false);
+
+            // 벽 4스트립(콜라이더 포함, 코너까지 겹침)
+            float t = 1f;
+            TiledQuad(root, WallTile, center + new Vector2(0, half.y + t * 0.5f), half.x * 2f + t * 2f, t, 0, true);
+            TiledQuad(root, WallTile, center + new Vector2(0, -half.y - t * 0.5f), half.x * 2f + t * 2f, t, 0, true);
+            TiledQuad(root, WallTile, center + new Vector2(half.x + t * 0.5f, 0), t, half.y * 2f, 0, true);
+            TiledQuad(root, WallTile, center + new Vector2(-half.x - t * 0.5f, 0), t, half.y * 2f, 0, true);
+
             if (d.topology == Topology.Cover) BuildPillars(root, center, half, spawn);
 
             return new Room { root = root, center = center, half = half, playerSpawn = spawn };
         }
 
-        private static GameObject MakeTile(GameObject root, int tile, Vector2 pos, int sorting)
+        /// <summary>타일 스프라이트를 Tiled 모드로 (worldW × worldH) 만큼 반복 렌더. solid면 콜라이더.</summary>
+        private static GameObject TiledQuad(GameObject root, int tile, Vector2 center,
+                                            float worldW, float worldH, int sorting, bool solid)
         {
-            var go = new GameObject("Tile");
+            var go = new GameObject(solid ? "Wall" : "Floor");
             go.transform.SetParent(root.transform, false);
-            go.transform.position = pos;
+            go.transform.position = center;
+
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Tile(tile);
             sr.sortingOrder = sorting;
-            float s = SpriteFactory.ScaleFor(sr.sprite, TileSize);
+            sr.drawMode = SpriteDrawMode.Tiled;
+
+            float unit = sr.sprite.bounds.size.y; // 타일 1개의 월드 크기(스케일1 기준)
+            float s = unit > 0.0001f ? 1f / unit : 1f; // 타일 1개 = 1 월드유닛
             go.transform.localScale = new Vector3(s, s, 1f);
+            sr.size = new Vector2(worldW * unit, worldH * unit); // 로컬 크기(스케일 후 worldW×worldH)
+
+            if (solid)
+            {
+                var col = go.AddComponent<BoxCollider2D>();
+                col.size = sr.size; // 로컬
+                go.AddComponent<Solid>();
+            }
             return go;
-        }
-
-        private static Vector2 Origin(Vector2 center, Vector2 half) =>
-            center - half + Vector2.one * (TileSize * 0.5f);
-
-        private static void BuildFloor(GameObject root, Vector2 center, Vector2 half)
-        {
-            int nx = Mathf.CeilToInt(half.x * 2f / TileSize);
-            int ny = Mathf.CeilToInt(half.y * 2f / TileSize);
-            Vector2 o = Origin(center, half);
-            for (int i = 0; i < nx; i++)
-                for (int j = 0; j < ny; j++)
-                {
-                    Vector2 pos = o + new Vector2(i * TileSize, j * TileSize);
-                    int t = Random.value < 0.07f ? (Random.value < 0.5f ? 12 : 24) : FloorTile; // 가끔 잔해
-                    MakeTile(root, t, pos, -10);
-                }
-        }
-
-        private static void BuildWalls(GameObject root, Vector2 center, Vector2 half)
-        {
-            int nx = Mathf.CeilToInt(half.x * 2f / TileSize);
-            int ny = Mathf.CeilToInt(half.y * 2f / TileSize);
-            for (int i = -1; i <= nx; i++) { PlaceWall(root, center, half, i, -1); PlaceWall(root, center, half, i, ny); }
-            for (int j = 0; j < ny; j++) { PlaceWall(root, center, half, -1, j); PlaceWall(root, center, half, nx, j); }
-        }
-
-        private static void PlaceWall(GameObject root, Vector2 center, Vector2 half, int i, int j)
-        {
-            Vector2 pos = Origin(center, half) + new Vector2(i * TileSize, j * TileSize);
-            var go = MakeTile(root, WallTile, pos, 0);
-            var sr = go.GetComponent<SpriteRenderer>();
-            var col = go.AddComponent<BoxCollider2D>();
-            col.size = sr.sprite.bounds.size; // 로컬(스케일 적용 전) 크기
-            go.AddComponent<Solid>();
         }
 
         private static void BuildPillars(GameObject root, Vector2 center, Vector2 half, Vector2 spawn)
         {
-            int count = 5;
-            for (int k = 0; k < count; k++)
+            for (int k = 0; k < 5; k++)
             {
                 Vector2 p = Vector2.zero;
                 for (int tries = 0; tries < 10; tries++)
@@ -109,8 +96,14 @@ namespace AIDungeon.Game
                         Random.Range(-half.y + 2.5f, half.y - 2.5f));
                     if (Vector2.Distance(p, spawn) > 4f) break;
                 }
-                var go = MakeTile(root, PillarTile, p, 1);
-                var sr = go.GetComponent<SpriteRenderer>();
+                var go = new GameObject("Pillar");
+                go.transform.SetParent(root.transform, false);
+                go.transform.position = p;
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = SpriteFactory.Tile(PillarTile);
+                sr.sortingOrder = 1;
+                float s = SpriteFactory.ScaleFor(sr.sprite, 1f);
+                go.transform.localScale = new Vector3(s, s, 1f);
                 var col = go.AddComponent<BoxCollider2D>();
                 col.size = sr.sprite.bounds.size;
                 go.AddComponent<Solid>();
