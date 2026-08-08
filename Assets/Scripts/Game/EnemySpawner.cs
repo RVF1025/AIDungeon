@@ -60,12 +60,10 @@ namespace AIDungeon.Game
                 Spawn(types[i], SpawnPos(d.topology, i, count), d.difficultyModifier, eliteSet.Contains(i));
         }
 
-        // 정예 수: 3층부터 1마리, 난이도 1.35↑(정예 전투 경로 등)면 +1. 최대 3, 최소 한 마리는 일반.
+        // 정예 수: DirectorPolicy 공통 규칙 사용. 최대 3, 최소 한 마리는 일반 유지.
         private static int EliteCount(DirectorDecision d, int floor, int total)
         {
-            int n = 0;
-            if (floor >= 3) n = 1;
-            if (d.difficultyModifier >= 1.35f) n++;
+            int n = DirectorPolicy.EliteCountFor(floor, d.difficultyModifier);
             return Mathf.Clamp(n, 0, Mathf.Min(3, Mathf.Max(0, total - 1)));
         }
 

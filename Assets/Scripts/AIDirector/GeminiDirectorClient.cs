@@ -44,7 +44,7 @@ namespace AIDungeon.Director
             "rusher_pack:빠른근접으로 원거리플레이어 압박('순식간에 접근'), tank_bait:탱커 미끼로 저돌형 유인('벽/미끼'), balanced:균형. " +
             "절대 규칙: 방·지형·위치·공간은 일절 묘사하지 마라. 오직 적의 전술(composition)과 플레이어 상태에만 집중하라. " +
             "tone - taunt:약점을 파고들며 도발, impressed:플레이어가 잘해 감탄, concern:플레이어가 고전해 자비, neutral:관찰. " +
-            "avgHpPct가 낮으면 concern, 높으면 impressed 또는 taunt 성향.";
+            "avgHpPct가 낮으면 concern, 높으면 impressed 성향. taunt는 유저 메시지가 명시적으로 허용할 때만 쓴다.";
 
         // 대사+태도만 받는 축소 스키마 → 토큰↓ 지연↓.
         private const string ResponseSchemaNarration =
@@ -64,12 +64,13 @@ namespace AIDungeon.Director
             string comp = DirectorPolicy.CompositionAvoiding(profile, lastComp);
             string topo = DirectorPolicy.ChooseTopologyAvoiding(profile, floor, lastTopo);
             float diff = DirectorPolicy.CanonicalDifficulty(profile);
+            bool elite = DirectorPolicy.WillSpawnElite(floor, diff); // 정예 등장 여부(≈3층부터)
 
             string url = proxyUrl;
             if (!string.IsNullOrEmpty(modelOverride))
                 url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
 
-            byte[] payload = Encoding.UTF8.GetBytes(BuildRequestBody(profile, comp, diff, persona.voice));
+            byte[] payload = Encoding.UTF8.GetBytes(BuildRequestBody(profile, comp, diff, persona.voice, elite));
 
             using (var req = new UnityWebRequest(url, "POST"))
             {
@@ -96,12 +97,14 @@ namespace AIDungeon.Director
                 if (decision == null)
                 {
                     // 폴백도 페르소나 목소리로(전술은 이미 계산한 comp/topo/diff 사용)
+                    string tone = DirectorPolicy.CanonicalTone(profile);
+                    if (!elite && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예 상황만
                     decision = new DirectorDecision
                     {
                         composition = comp,
                         topology = topo,
                         difficultyModifier = diff,
-                        tone = DirectorPolicy.CanonicalTone(profile),
+                        tone = tone,
                         fromFallback = true,
                     };
                     decision.analysis = persona.Fallback(decision.tone);
@@ -113,6 +116,13 @@ namespace AIDungeon.Director
                     decision.topology = topo;
                     decision.difficultyModifier = diff;
                     DirectorPolicy.Reconcile(decision, profile, letAiDecideTactics);
+
+                    // 도발(taunt)은 정예급 난이도에서만. 그 외엔 상황 톤으로 바꾸고 대사도 교체.
+                    if (!elite && decision.tone == Tone.Taunt)
+                    {
+                        decision.tone = DirectorPolicy.NonTauntTone(profile);
+                        decision.analysis = persona.Fallback(decision.tone);
+                    }
 
                     // 대사는 공간/지형을 일절 언급하지 않는 정책. 방 형태 단어가 새어 나오면
                     // (LLM이 지시를 어긴 것) 같은 톤 페르소나 대사로 조용히 교체.
@@ -155,14 +165,17 @@ namespace AIDungeon.Director
             }
         }
 
-        private string BuildRequestBody(PlayerProfile p, string comp, float diff, string voice)
+        private string BuildRequestBody(PlayerProfile p, string comp, float diff, string voice, bool elite)
         {
             var c = CultureInfo.InvariantCulture;
             // topology는 일부러 넘기지 않는다(대사가 방을 언급할 근거 자체를 제거).
             string userText =
                 $"{p.ToPromptLine()} | 적 구성: composition={comp}, " +
                 string.Format(c, "difficultyModifier={0:0.00}", diff) +
-                " | 대사 지침: " + CompositionBrief(comp);
+                " | 대사 지침: " + CompositionBrief(comp) +
+                (elite
+                    ? " | 이번엔 정예(챔피언)급 강적이 등장한다. 대사에 이 강적의 등장을 반드시 언급하라. tone은 taunt(도발) 허용."
+                    : " | 평범한 난이도다. tone에 taunt(도발)를 쓰지 마라. impressed/concern/neutral 중에서만 골라라.");
 
             var sb = new StringBuilder(1024);
             sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");

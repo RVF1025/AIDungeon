@@ -75,6 +75,25 @@ namespace AIDungeon.Director
             return Mathf.Lerp(0.8f, 1.3f, Mathf.Clamp01(p.avgHpPct));
         }
 
+        // 정예(챔피언) 스폰 규칙(스포너·대사 프롬프트 공통 소스). caller가 마릿수는 클램프.
+        public const float EliteDiffThreshold = 1.35f;
+        public static int EliteCountFor(int floor, float diff)
+        {
+            int n = 0;
+            if (floor >= 3) n = 1;                    // 3층부터 챔피언 1
+            if (diff >= EliteDiffThreshold) n++;      // 정예 전투 경로 등 고난이도 +1
+            return n;
+        }
+        public static bool WillSpawnElite(int floor, float diff) => EliteCountFor(floor, diff) > 0;
+
+        // taunt(도발)를 쓸 수 없는 상황의 대체 톤(체력 상황 기반).
+        public static string NonTauntTone(PlayerProfile p)
+        {
+            if (p.avgHpPct <= 0.35f) return Tone.Concern;
+            if (p.avgHpPct >= 0.85f) return Tone.Impressed;
+            return Tone.Neutral;
+        }
+
         // 폴백/검증용 기본 tone (AI가 없을 때만 사용).
         public static string CanonicalTone(PlayerProfile p)
         {
