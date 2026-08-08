@@ -22,8 +22,8 @@ namespace AIDungeon.Director
         [Tooltip("Vercel 프록시 엔드포인트. 프로덕션 고정 주소 사용.")]
         public string proxyUrl = "https://ai-dungeon-nine.vercel.app/api/gemini";
 
-        [Tooltip("비우면 프록시 기본 모델. flash-lite가 과부하일 때가 있어 flash-latest 사용.")]
-        public string modelOverride = "gemini-flash-latest";
+        [Tooltip("3.5-flash-lite: ~1초, 무료 한도 여유(측정). flash-latest는 느리고 429 잦음.")]
+        public string modelOverride = "gemini-3.5-flash-lite";
 
         [Header("동작")]
         [Tooltip("초과 시 폴백. 대사는 백그라운드로 받으니 넉넉해도 게임 안 멈춤.")]

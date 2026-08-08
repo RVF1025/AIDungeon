@@ -76,7 +76,7 @@ namespace AIDungeon.Game
 
             // 하단 AI Director 대사 패널
             var panel = MakePanel(canvas.transform, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
-                new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(1500, 210),
+                new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(1500, 300),
                 new Color(0.05f, 0.06f, 0.12f, 0.82f));
 
             // 좌측 초상(투명 배경). 초상 로드 전엔 숨김.
@@ -84,19 +84,19 @@ namespace AIDungeon.Game
             pgo.transform.SetParent(panel, false);
             var prt = pgo.GetComponent<RectTransform>();
             prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0, 0);
-            prt.anchoredPosition = new Vector2(18, 6);
-            prt.sizeDelta = new Vector2(188, 188); // 상단 하늘색 테두리와 안 겹치게
+            prt.anchoredPosition = new Vector2(20, 12);
+            prt.sizeDelta = new Vector2(280, 280); // 크게
             _portrait = pgo.AddComponent<Image>();
             _portrait.preserveAspect = true;
             _portrait.raycastTarget = false;
             _portrait.enabled = false;
 
             _tag = MakeText(panel, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1),
-                new Vector2(260, -14), new Vector2(-290, 40), 26, TextAlignmentOptions.TopLeft);
+                new Vector2(340, -16), new Vector2(-380, 40), 28, TextAlignmentOptions.TopLeft);
             _tag.color = new Color(0.55f, 0.8f, 1f);
 
             _analysis = MakeText(panel, new Vector2(0, 0), new Vector2(1, 1), new Vector2(0, 1),
-                new Vector2(260, -56), new Vector2(-290, -70), 42, TextAlignmentOptions.TopLeft);
+                new Vector2(340, -62), new Vector2(-380, -90), 46, TextAlignmentOptions.TopLeft);
 
             // AI 전용 프레임 느낌의 상단 테두리(설계 4장: 다른 UI와 구분되는 색/테두리)
             var border = MakePanel(panel, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1),
