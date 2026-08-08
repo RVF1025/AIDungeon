@@ -44,21 +44,22 @@ namespace AIDungeon.Game
             }
         }
 
-        /// <summary>근접 스윙 아크: 조준 방향으로 호를 그리며 휙 지나감.</summary>
-        public static void Slash(Vector3 pos, Vector2 dir, float size, Color color)
+        /// <summary>근접 스윙 아크: 조준 방향으로 호를 그리며 휙. flip으로 좌우(위/아래) 스윙 교대.</summary>
+        public static void Slash(Vector3 pos, Vector2 dir, float size, Color color, bool flip)
         {
+            float side = flip ? -1f : 1f;
             var go = new GameObject("Slash");
             go.transform.position = pos;
             float ang = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
-            go.transform.rotation = Quaternion.Euler(0, 0, ang - 45f); // 위쪽에서 시작해 쓸어내림
-            go.transform.localScale = Vector3.one * size;
+            go.transform.rotation = Quaternion.Euler(0, 0, ang + 55f * side); // 한쪽에서 시작
+            go.transform.localScale = Vector3.one * (size * Random.Range(0.9f, 1.1f));
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = SpriteFactory.Slash();
             sr.color = color;
             sr.sortingOrder = 6;
             var fx = go.AddComponent<FxLife>().Bind();
-            fx.rotatePerSec = 700f; // 휘두르는 스윕
-            fx.scalePerSec = size * 1.5f;
+            fx.rotatePerSec = -800f * side; // 반대편으로 쓸어내림(교대)
+            fx.scalePerSec = size * 1.4f;
             fx.life = 0.14f;
         }
 

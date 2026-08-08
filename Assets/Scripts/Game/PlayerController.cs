@@ -30,6 +30,7 @@ namespace AIDungeon.Game
         private SpriteRenderer _sr;
         private Transform _crosshair;
         private float _meleeTimer, _rangedTimer;
+        private bool _swingFlip; // 슬래시 좌우 교대
         private Camera _cam;
 
         private void Awake()
@@ -114,7 +115,8 @@ namespace AIDungeon.Game
                 hp.TakeDamage(meleeDamage, dir);
                 BehaviorLogger.Instance?.RecordDamage(DamageType.Melee, meleeDamage);
             }
-            Vfx.Slash(center, AimDir(), meleeRange * 1.4f, new Color(0.6f, 1f, 1f, 0.9f));
+            Vfx.Slash(center, AimDir(), meleeRange * 1.4f, new Color(0.6f, 1f, 1f, 0.9f), _swingFlip);
+            _swingFlip = !_swingFlip; // 다음 타격은 반대 방향
         }
 
         private void DoRanged()
