@@ -42,8 +42,7 @@ namespace AIDungeon.Director
             "(2) tone: 아래 넷 중 하나. " +
             "composition 의미 - kiter_pack:원거리 적들이 거리를 유지하며 근접 플레이어의 공격이 자기들에게 '닿지 못하게' 함(플레이어가 못 닿는다는 방향으로 서술), " +
             "rusher_pack:빠른근접으로 원거리플레이어 압박('순식간에 접근'), tank_bait:탱커 미끼로 저돌형 유인('벽/미끼'), balanced:균형. " +
-            "절대 규칙: 방의 형태·지형은 유저 메시지의 '이번 공간' 키워드에 맞춰라. 거기 없는 다른 지형은 만들어내지 마라. " +
-            "단, '이번 공간' 설명 문구를 그대로 베끼지 말고 캐릭터 말투로 짧게 재해석하라. " +
+            "절대 규칙: 방·지형·위치·공간은 일절 묘사하지 마라. 오직 적의 전술(composition)과 플레이어 상태에만 집중하라. " +
             "tone - taunt:약점을 파고들며 도발, impressed:플레이어가 잘해 감탄, concern:플레이어가 고전해 자비, neutral:관찰. " +
             "avgHpPct가 낮으면 concern, 높으면 impressed 또는 taunt 성향.";
 
@@ -70,7 +69,7 @@ namespace AIDungeon.Director
             if (!string.IsNullOrEmpty(modelOverride))
                 url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
 
-            byte[] payload = Encoding.UTF8.GetBytes(BuildRequestBody(profile, comp, topo, diff, persona.voice));
+            byte[] payload = Encoding.UTF8.GetBytes(BuildRequestBody(profile, comp, diff, persona.voice));
 
             using (var req = new UnityWebRequest(url, "POST"))
             {
@@ -115,11 +114,11 @@ namespace AIDungeon.Director
                     decision.difficultyModifier = diff;
                     DirectorPolicy.Reconcile(decision, profile, letAiDecideTactics);
 
-                    // 공간 묘사 모순 방어: LLM이 프롬프트를 어기고 topology와 안 맞는 공간어를
-                    // 넣으면(예: corridor인데 '엄폐물') 같은 톤 페르소나 대사로 조용히 교체.
-                    if (MentionsForeignSpace(decision.analysis, decision.topology))
+                    // 대사는 공간/지형을 일절 언급하지 않는 정책. 방 형태 단어가 새어 나오면
+                    // (LLM이 지시를 어긴 것) 같은 톤 페르소나 대사로 조용히 교체.
+                    if (MentionsSpace(decision.analysis))
                     {
-                        Debug.LogWarning($"[AIDirector] topology({decision.topology}) 불일치 공간어 → 페르소나 대사로 교체. \"{decision.analysis}\"");
+                        Debug.LogWarning($"[AIDirector] 공간어 언급 감지 → 페르소나 대사로 교체. \"{decision.analysis}\"");
                         decision.analysis = persona.Fallback(decision.tone);
                     }
                 }
@@ -128,41 +127,19 @@ namespace AIDungeon.Director
             }
         }
 
-        // 주어진 topology에 속하지 않는 '남의 방' 공간어가 대사에 있으면 true(모순).
-        private static bool MentionsForeignSpace(string analysis, string topo)
+        // 대사에 방/지형/위치 단어가 하나라도 있으면 true(정책상 공간 언급 전면 금지).
+        // topology는 실제 방으로 이미 보이므로 대사가 묘사할 필요가 없다 → 모순 원천 차단.
+        private static readonly string[] SpaceWords =
+        {
+            "통로", "복도", "개활", "광야", "벌판", "엄폐", "기둥", "차폐", "은폐",
+            "포위", "에워", "둘러싸", "틈새", "탁 트", "코너",
+        };
+        private static bool MentionsSpace(string analysis)
         {
             if (string.IsNullOrEmpty(analysis)) return false;
-            // '사방'은 포위·탁트임 양쪽에 쓰여 애매하므로 제외(포위/에워/둘러싸로 판별).
-            // encircle은 '넓은 방'이라 개활지/탁 트임 언급이 모순 아님 → 금지 안 함.
-            // 동의어까지 차단: cover계열=엄폐/기둥/차폐/은폐, open계열=개활/광야/벌판/탁 트,
-            //                narrow계열=복도/통로/일렬/틈새, surround계열=포위/에워/둘러싸.
-            string[] foreign;
-            switch (topo)
-            {
-                case Topology.Corridor: foreign = new[] { "엄폐", "기둥", "차폐", "은폐", "개활", "광야", "벌판", "탁 트", "포위", "에워", "둘러싸" }; break;
-                case Topology.Encircle: foreign = new[] { "엄폐", "기둥", "차폐", "은폐", "복도", "통로", "일렬", "틈새" }; break;
-                case Topology.Cover:    foreign = new[] { "복도", "통로", "개활", "광야", "벌판", "탁 트", "포위", "에워", "둘러싸" }; break;
-                case Topology.Open:     foreign = new[] { "엄폐", "기둥", "차폐", "은폐", "복도", "통로", "일렬", "틈새" }; break;
-                default: return false;
-            }
-            foreach (var w in foreign)
+            foreach (var w in SpaceWords)
                 if (analysis.Contains(w)) return true;
             return false;
-        }
-
-        // 이번 요청의 topology '한 개'만 유저 메시지에 실어준다(시스템 프롬프트엔 다른 방 형태 단어가
-        // 없으므로 모델이 '엄폐물' 같은 남의 방 단어를 복사할 여지 자체를 제거).
-        private static string TopologyBrief(string topo)
-        {
-            switch (topo)
-            {
-                // 짧은 키워드만. (모델이 문장을 통째로 베끼지 못하도록 서술문이 아닌 태그로 제공)
-                case Topology.Encircle: return "포위(넓은 방, 사방이 적, 퇴로 없음)";
-                case Topology.Cover:    return "엄폐(기둥·차폐물로 시야/사선 차단)";
-                case Topology.Open:     return "개활지(탁 트임, 숨을 곳 없음)";
-                case Topology.Corridor: return "좁은 통로(일렬, 1:1)";
-                default:                return "일반 방";
-            }
         }
 
         // composition별 대사 초점. 특히 balanced는 특정 전술 우위(거리/접근/미끼) 주장을 금지하고
@@ -178,13 +155,13 @@ namespace AIDungeon.Director
             }
         }
 
-        private string BuildRequestBody(PlayerProfile p, string comp, string topo, float diff, string voice)
+        private string BuildRequestBody(PlayerProfile p, string comp, float diff, string voice)
         {
             var c = CultureInfo.InvariantCulture;
+            // topology는 일부러 넘기지 않는다(대사가 방을 언급할 근거 자체를 제거).
             string userText =
-                $"{p.ToPromptLine()} | 결정된 전술: composition={comp}, topology={topo}, " +
+                $"{p.ToPromptLine()} | 적 구성: composition={comp}, " +
                 string.Format(c, "difficultyModifier={0:0.00}", diff) +
-                " | 이번 공간: " + TopologyBrief(topo) +
                 " | 대사 지침: " + CompositionBrief(comp);
 
             var sb = new StringBuilder(1024);
