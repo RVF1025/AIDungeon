@@ -101,6 +101,24 @@ namespace AIDungeon.Game
                 // AI가 이 갈림길을 평가(대기 필요 → 로딩 화면).
                 ForkComment comment = null; bool ready = false;
                 StartCoroutine(_client.RequestForkComment(profile, _persona, cands, recentEvent, c => { comment = c; ready = true; }));
+
+                // 다음 전투 진입 대사도 선택지별로 병렬 선요청(고르는 즉시 사용). composition/topology는
+                // 선택지 무관하게 동일하므로 정예 여부만 달리해 요청한다. 휴식/???는 제외.
+                int nextFloor = _floor + 1;
+                string entryComp = DirectorPolicy.CompositionAvoiding(profile, _lastComp);
+                string entryTopo = DirectorPolicy.ChooseTopologyAvoiding(profile, nextFloor, _lastTopo);
+                if (entryTopo == Topology.Corridor && entryComp == Composition.RusherPack) entryComp = Composition.KiterPack;
+                var entry = new ForkComment[cands.Count];
+                var entryReady = new bool[cands.Count];
+                for (int i = 0; i < cands.Count; i++)
+                {
+                    var a = cands[i];
+                    if (!a.combat || a.mystery) { entryReady[i] = true; continue; }
+                    int oi = i; bool el = a.id == ForkArchetypes.Elite.id;
+                    StartCoroutine(_client.RequestCombatEntry(profile, _persona, entryComp, el,
+                        c => { entry[oi] = c; entryReady[oi] = true; }));
+                }
+
                 _phase = "AI Director가 갈림길을 살피는 중...";
                 if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
                 float t0 = Time.time;
@@ -160,14 +178,17 @@ namespace AIDungeon.Game
                     yield break;
                 }
 
-                // 일반/정예 전투 진입 톤. 감탄(impressed)은 회고성이라 갈림길 평가에서만 쓴다.
-                // 정예=도발(강적 위협), 저체력=걱정, 그 외=관찰(neutral).
+                // 일반/정예 전투: 선요청해 둔 AI 진입 대사 사용(대개 이미 도착, 아니면 잠깐 대기).
                 bool eliteRoom = arch.id == ForkArchetypes.Elite.id;
-                string tone = eliteRoom ? Tone.Taunt
-                            : profile.avgHpPct <= 0.35f ? Tone.Concern
-                            : Tone.Neutral;
+                if (!entryReady[idx])
+                {
+                    _phase = "다음 전투 준비...";
+                    if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
+                    while (!entryReady[idx]) yield return null;
+                }
+                var ec = entry[idx] ?? new ForkComment { tone = Tone.Neutral, line = _persona.Fallback(Tone.Neutral) };
                 yield return EnterCombat(profile, arch.id, arch.diffMul, arch.countMul, arch.treasure, eliteRoom,
-                                         _persona.Fallback(tone), tone);
+                                         ec.line, ec.tone);
                 yield break;
             }
         }

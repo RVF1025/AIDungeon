@@ -245,6 +245,74 @@ namespace AIDungeon.Director
             }
         }
 
+        private const string EntrySystemInstruction =
+            "당신은 탑다운 2D 로그라이크의 AI 던전 디렉터입니다. 곧 전투에 진입하는 플레이어에게 던지는 한 문장. " +
+            "적 구성(composition)을 은근히 암시하며 당신 성격대로 말하라. composition 의미 - " +
+            "kiter_pack:원거리 적이 거리를 유지해 근접 플레이어의 공격이 닿지 못함, rusher_pack:빠른 근접으로 압박, " +
+            "tank_bait:탱커 미끼로 유인, balanced:특정 우위 없음(전투 자체나 플레이어 상태에 집중). " +
+            "방·지형·위치·공간은 일절 언급 금지. line: 공백 포함 40자 이내 한 문장. " +
+            "tone: taunt/impressed/concern/neutral 중 하나(단 taunt는 '정예 강적' 표기가 있을 때만). " +
+            "특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만.";
+
+        /// <summary>다음 전투 진입 대사(적 구성 기반). 정예 방일 때만 taunt 허용. 실패 시 성향 폴백.</summary>
+        public IEnumerator RequestCombatEntry(PlayerProfile profile, DirectorPersona persona,
+                                              string composition, bool elite, Action<ForkComment> onResult)
+        {
+            string url = proxyUrl;
+            if (!string.IsNullOrEmpty(modelOverride))
+                url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
+
+            string userText = $"{profile.ToPromptLine()} | 다음 전투 적 구성: {composition} | " +
+                              (elite ? "정예 강적 등장(도발 허용)" : "일반 난이도(도발 금지)") + " | 진입 대사.";
+
+            var sb = new StringBuilder(1024);
+            sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
+            AppendJsonString(sb, EntrySystemInstruction + " " + persona.voice);
+            sb.Append("}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":");
+            AppendJsonString(sb, userText);
+            sb.Append("}]}],\"generationConfig\":{\"responseMimeType\":\"application/json\",\"responseSchema\":");
+            sb.Append(ForkResponseSchema);
+            sb.Append(",\"temperature\":");
+            sb.Append(temperature.ToString("0.0", CultureInfo.InvariantCulture));
+            sb.Append("}}");
+
+            using (var req = new UnityWebRequest(url, "POST"))
+            {
+                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(sb.ToString()));
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.timeout = Mathf.CeilToInt(timeoutSeconds);
+
+                yield return req.SendWebRequest();
+
+                ForkComment cm = null;
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    try
+                    {
+                        var dto = JsonUtility.FromJson<ForkCommentDto>(req.downloadHandler.text);
+                        if (dto != null)
+                        {
+                            string tone = DirectorPolicy.IsValidTone(dto.tone) ? dto.tone : Tone.Neutral;
+                            if (!elite && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예만
+                            string line = string.IsNullOrWhiteSpace(dto.line) || DirectorPolicy.MentionsSpace(dto.line)
+                                ? persona.Fallback(tone) : dto.line.Trim();
+                            cm = new ForkComment { line = line, tone = tone };
+                        }
+                    }
+                    catch (Exception e) { Debug.LogWarning($"[AIDirector] 진입 대사 파싱 예외: {e.Message}"); }
+                }
+                else Debug.LogWarning($"[AIDirector] 진입 대사 실패({req.result}) → 폴백. {req.error}");
+
+                if (cm == null)
+                {
+                    string tone = elite ? Tone.Taunt : (profile.avgHpPct <= 0.35f ? Tone.Concern : Tone.Neutral);
+                    cm = new ForkComment { tone = tone, line = persona.Fallback(tone) };
+                }
+                onResult?.Invoke(cm);
+            }
+        }
+
         [Serializable] private class ForkCommentDto { public string line, tone; }
 
         private ForkComment ParseForkComment(string json, DirectorPersona persona)
