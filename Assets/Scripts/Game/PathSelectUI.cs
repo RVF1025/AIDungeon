@@ -56,8 +56,8 @@ namespace AIDungeon.Game
         {
             var canvas = ScreenUi.BuildCanvas("PathSelectCanvas");
 
-            // 상단 감독 대사창(전투 HUD와 동일한 스타일: 초상 옆에 패널+텍스트)
-            var panel = MakePanel(canvas.transform, new Vector2(0, 330), new Vector2(1500, 240),
+            // 하단 감독 대사창(전투 HUD와 동일한 위치·스타일: 초상 옆에 패널+텍스트)
+            var panel = MakePanel(canvas.transform, new Vector2(0, -370), new Vector2(1500, 240),
                 new Color(0.05f, 0.06f, 0.12f, 0.92f));
             // 상단 파란 테두리 느낌
             MakePanel(panel, new Vector2(0, 122), new Vector2(1500, 4), new Color(0.4f, 0.75f, 1f, 0.9f));
@@ -87,13 +87,13 @@ namespace AIDungeon.Game
                 42f, new Vector2(textX, -8), textW);
             line.alignment = TextAlignmentOptions.Left;
 
-            ScreenUi.Label(canvas.transform, "숫자 키로 갈림길을 선택하시오", 26f, new Vector2(0, 170));
+            ScreenUi.Label(canvas.transform, "숫자 키로 갈림길을 선택하시오", 26f, new Vector2(0, 350));
 
             int n = options.Count;
             const float spacing = 500f;
             float x0 = -(n - 1) * 0.5f * spacing;
             for (int i = 0; i < n; i++)
-                BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, -70));
+                BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, 90));
 
             return canvas;
         }
