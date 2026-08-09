@@ -87,7 +87,7 @@ namespace AIDungeon.Game
             // 상단 현재 체력 + 층 표시
             var hpLabel = ScreenUi.Label(canvas.transform, $"HP {hp} / {maxHp}", 32f, new Vector2(0, 470));
             hpLabel.color = new Color(0.6f, 1f, 0.75f);
-            var floorLabel = ScreenUi.Label(canvas.transform, $"{floor}층", 30f, new Vector2(0, 432));
+            var floorLabel = ScreenUi.Label(canvas.transform, $"{floor}층 갈림길", 30f, new Vector2(0, 432));
             floorLabel.color = new Color(0.8f, 0.85f, 0.95f);
 
             // 하단 감독 대사창(전투 HUD와 동일한 위치·스타일: 초상 옆에 패널+텍스트)
