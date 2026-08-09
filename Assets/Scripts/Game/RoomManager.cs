@@ -126,11 +126,18 @@ namespace AIDungeon.Game
 
                 if (arch.mystery)
                 {
-                    // ??? 방: 정체 해석 → AI가 어조로 정체를 밝히며 상황 평가.
                     var m = ForkArchetypes.ResolveMystery();
                     Debug.Log($"[???] 해석: {m.reveal}");
-                    var cm = new ForkComment { tone = Tone.Neutral, line = m.reveal };
-                    bool mready = false;
+
+                    if (!m.combat) // 보물방 등 비전투: 멘트 없이 보물만 주고 다시 갈림길
+                    {
+                        if (m.treasure) yield return OpenTreasure();
+                        profile = _logger.BuildProfile();
+                        continue;
+                    }
+
+                    // 전투형 ???: AI가 어조로 정체를 밝히며 상황 평가.
+                    ForkComment cm = null; bool mready = false;
                     string situation = $"??? 방의 정체가 '{m.reveal}'로 드러났다. 이 정체를 네 말투로 밝히며 플레이어의 현재 상황을 평가하라.";
                     StartCoroutine(_client.RequestSituationComment(profile, _persona, situation, c => { cm = c; mready = true; }));
                     _phase = "AI Director가 상황을 살피는 중...";
@@ -140,15 +147,6 @@ namespace AIDungeon.Game
                     if (_loading != null) { Destroy(_loading.gameObject); _loading = null; }
 
                     string mtone = m.elite ? cm.tone : (cm.tone == Tone.Taunt ? DirectorPolicy.NonTauntTone(profile) : cm.tone);
-
-                    if (!m.combat) // 보물방 등 비전투: AI 해설 + 보물 후 다시 갈림길
-                    {
-                        yield return ShowMysteryMessage(cm.line);
-                        if (m.treasure) yield return OpenTreasure();
-                        profile = _logger.BuildProfile();
-                        continue;
-                    }
-
                     yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, cm.line, mtone);
                     yield break;
                 }
@@ -191,18 +189,6 @@ namespace AIDungeon.Game
             _lastComp = _current.composition; _lastTopo = _current.topology;
             _hud?.ShowDecision(_current);
             Debug.Log($"[AI Director] 방:{_arch.id} 정예:{_eliteRoom} → {_current}");
-        }
-
-        // ??? 비전투 결과(보물 등)의 AI 어조 해설을 검은 화면에 표시.
-        private IEnumerator ShowMysteryMessage(string line)
-        {
-            var canvas = ScreenUi.BuildCanvas("MysteryCanvas");
-            canvas.sortingOrder = 250;
-            var t = ScreenUi.Label(canvas.transform, "???", 84f, new Vector2(0, 60));
-            t.color = new Color(0.8f, 0.7f, 1f);
-            ScreenUi.Label(canvas.transform, string.IsNullOrEmpty(line) ? "" : $"\"{line}\"", 40f, new Vector2(0, -40));
-            yield return new WaitForSeconds(2.2f);
-            Destroy(canvas.gameObject);
         }
 
         // 한 전투 방: 생성 → 이동 → 스폰 → 전멸 대기 (사망 시 즉시 반환)
