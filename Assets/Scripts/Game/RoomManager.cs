@@ -123,7 +123,7 @@ namespace AIDungeon.Game
                     int before = Mathf.CeilToInt(_playerHealth.CurrentHp);
                     if (arch.heal01 > 0f) _playerHealth.Heal(_playerHealth.maxHp * arch.heal01);
                     int after = Mathf.CeilToInt(_playerHealth.CurrentHp);
-                    yield return ShowRestMessage(before, after, Mathf.CeilToInt(_playerHealth.maxHp));
+                    yield return ShowRestMessage(before, after);
                     profile = _logger.BuildProfile(); // 회복 반영
                     continue;
                 }
@@ -174,10 +174,15 @@ namespace AIDungeon.Game
             _arch = new ForkArchetype { id = archId, combat = true, diffMul = diffMul, countMul = countMul, treasure = treasure };
 
             float diff = DirectorPolicy.FloorScaledDifficulty(profile, nextFloor, diffMul); // 층 오를수록 ↑
+            string comp = DirectorPolicy.CompositionAvoiding(profile, _lastComp);
+            string topo = DirectorPolicy.ChooseTopologyAvoiding(profile, nextFloor, _lastTopo);
+            // 통로는 근접 없음 → 근접 위주 rusher_pack은 어울리지 않으니 kiter_pack으로 교체.
+            if (topo == Topology.Corridor && comp == Composition.RusherPack) comp = Composition.KiterPack;
+
             var decision = new DirectorDecision
             {
-                composition = DirectorPolicy.CompositionAvoiding(profile, _lastComp),
-                topology = DirectorPolicy.ChooseTopologyAvoiding(profile, nextFloor, _lastTopo),
+                composition = comp,
+                topology = topo,
                 difficultyModifier = diff,
                 tone = tone,
                 analysis = analysis,
@@ -253,14 +258,14 @@ namespace AIDungeon.Game
             archId == ForkArchetypes.Rest.id ? PathKind.Rest : PathKind.Combat;
 
         // 휴식 공간: 전투 없이 회복 문구만 보여주고 다음 갈림길로.
-        private IEnumerator ShowRestMessage(int before, int after, int max)
+        private IEnumerator ShowRestMessage(int before, int after)
         {
             var canvas = ScreenUi.BuildCanvas("RestCanvas"); // 갈림길과 같은 검은 전체화면
             canvas.sortingOrder = 250;
             var t = ScreenUi.Label(canvas.transform, "휴식 공간", 84f, new Vector2(0, 70));
             t.color = new Color(0.6f, 1f, 0.8f);
             ScreenUi.Label(canvas.transform, "잠시 숨을 돌렸다.", 36f, new Vector2(0, -20));
-            var hp = ScreenUi.Label(canvas.transform, $"체력 회복  {before} → {after} / {max}", 44f, new Vector2(0, -90));
+            var hp = ScreenUi.Label(canvas.transform, $"HP {before} → {after}", 44f, new Vector2(0, -90));
             hp.color = new Color(0.6f, 1f, 0.75f);
             yield return new WaitForSeconds(2.2f);
             Destroy(canvas.gameObject);

@@ -83,11 +83,12 @@ namespace AIDungeon.Game
             return set;
         }
 
-        // topology별 배치 규칙: encircle=탱커 제외(포위). corridor는 근접~원거리 모두 등장(진형 형성).
+        // topology별 배치 규칙: encircle=탱커 제외(포위). corridor=근접 제외(탱커·원거리만 진형).
         private List<EnemyType> RollTypes(string composition, string topology, int count)
         {
             var (m, r, t) = Weights(composition);
             if (topology == Topology.Encircle) t = 0f; // 탱커 없음
+            if (topology == Topology.Corridor) m = 0f; // 근접 없음(탱커 앞, 원거리 뒤)
             if (m + r + t <= 0f) { m = r = t = 1f; }   // 안전장치
 
             var list = new List<EnemyType>(count);
