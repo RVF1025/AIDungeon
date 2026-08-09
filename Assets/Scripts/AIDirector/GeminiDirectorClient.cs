@@ -147,9 +147,11 @@ namespace AIDungeon.Director
         private const string ForkSystemInstruction =
             "당신은 탑다운 2D 로그라이크의 AI 던전 디렉터입니다. 스테이지 클리어 후, 플레이어에게 제시된 " +
             "갈림길 선택지 목록을 보고 이 갈림길을 당신 성격으로 한 문장 평가/논평하세요(선택을 유도하듯). " +
-            "현재 플레이어 상태(체력 등)를 읽고 반영하되, 방·지형·위치·공간은 일절 언급 금지. " +
-            "line: 공백 포함 40자 이내 한 문장. tone: taunt/impressed/concern/neutral 중 하나. " +
-            "특수문자·이모지·말줄임표(…) 사용 금지, 한글과 기본 문장부호만.";
+            "'직전 전투 요약'을 폭넓게 반영하라: 전투 스타일(근접/원거리 편중이나 균형), 공격성, 체력 소모 중 " +
+            "가장 두드러진 점을 골라 언급. 체력만 반복하지 말 것. 한 가지 공격만 치우쳤으면 그 점을 꼬집어도 좋다. " +
+            "'???' 선택지가 목록에 있으면 그 정체에 대한 호기심을 자극하는 힌트를 살짝 흘려도 좋다. " +
+            "방·지형·위치·공간은 일절 언급 금지. line: 공백 포함 40자 이내 한 문장. " +
+            "tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만.";
 
         private const string ForkResponseSchema =
             "{\"type\":\"OBJECT\",\"properties\":{" +
@@ -257,6 +259,23 @@ namespace AIDungeon.Director
             return new ForkComment { line = line, tone = tone };
         }
 
+        // 수치를 사람이 읽을 서술로 변환(모델이 다양한 각도로 논평하도록). meleeRatio 1=근접만/0=원거리만.
+        private static string CombatSummary(PlayerProfile p)
+        {
+            string style =
+                p.meleeRatio >= 0.75f ? "근접에 극단적으로 치우침" :
+                p.meleeRatio >= 0.58f ? "근접 위주" :
+                p.meleeRatio <= 0.25f ? "원거리에 극단적으로 치우침" :
+                p.meleeRatio <= 0.42f ? "원거리 위주" : "근접·원거리 균형";
+            string hp =
+                p.avgHpPct <= 0.4f ? "체력을 크게 소모함(위태로움)" :
+                p.avgHpPct <= 0.7f ? "체력을 제법 소모함" : "체력에 여유가 있음";
+            string aggr =
+                p.aggression >= 0.65f ? "매우 저돌적" :
+                p.aggression <= 0.35f ? "신중하게 거리 유지" : "공격성 보통";
+            return $"스타일={style}, {hp}, 성향={aggr}";
+        }
+
         private string BuildForkRequestBody(PlayerProfile p, string voice, List<ForkArchetype> options)
         {
             var titles = new StringBuilder();
@@ -265,7 +284,8 @@ namespace AIDungeon.Director
                 if (i > 0) titles.Append(", ");
                 titles.Append(options[i].title);
             }
-            string userText = $"{p.ToPromptLine()} | 제시된 갈림길: {titles} | 이 갈림길을 평가하라.";
+            string userText =
+                $"{p.ToPromptLine()} | 직전 전투 요약: {CombatSummary(p)} | 제시된 갈림길: {titles} | 이 갈림길을 평가하라.";
 
             var sb = new StringBuilder(1024);
             sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
