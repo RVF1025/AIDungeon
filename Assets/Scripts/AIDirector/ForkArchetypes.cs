@@ -39,8 +39,9 @@ namespace AIDungeon.Director
         public float diffMul = 1f;
         public float countMul = 1f;
         public bool treasure = false;
-        public bool elite = false; // 정예 매복이면 정예 스폰
-        public string reveal; // 층 진입 대화에서 정체 공개
+        public bool elite = false;    // 정예 매복이면 정예 스폰
+        public bool combat = true;    // 보물방 등은 전투 없음
+        public string reveal;         // 정체(내용) — AI가 어조로 각색해 전달
     }
 
     public static class ForkArchetypes
@@ -144,7 +145,7 @@ namespace AIDungeon.Director
                 case 0: return new MysteryOutcome { diffMul = 1.3f, treasure = true, elite = true, reveal = "정예의 매복이었다!" };
                 case 1: return new MysteryOutcome { diffMul = 0.9f, countMul = 1.6f, reveal = "적 떼의 습격이다!" };
                 case 2: return new MysteryOutcome { diffMul = 1.15f, reveal = "함정이 도사리고 있었다." };
-                default: return new MysteryOutcome { diffMul = 1.0f, treasure = true, reveal = "뜻밖의 보물을 발견했다!" };
+                default: return new MysteryOutcome { combat = false, treasure = true, reveal = "뜻밖의 보물을 발견했다!" };
             }
         }
     }

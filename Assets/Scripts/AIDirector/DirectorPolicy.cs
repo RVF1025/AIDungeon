@@ -75,6 +75,14 @@ namespace AIDungeon.Director
             return Mathf.Lerp(0.8f, 1.3f, Mathf.Clamp01(p.avgHpPct));
         }
 
+        // 층이 오를수록 기본 난이도 점진 상승. 유형 배수(diffMul)를 곱해 최종 난이도 산출.
+        public const float MaxDifficulty = 2.0f;
+        public static float FloorScaledDifficulty(PlayerProfile p, int floor, float diffMul)
+        {
+            float baseDiff = CanonicalDifficulty(p) + Mathf.Max(0, floor - 1) * 0.03f; // 층당 +0.03
+            return Mathf.Clamp(baseDiff * diffMul, 0.8f, MaxDifficulty);
+        }
+
         // 정예(챔피언) 스폰 규칙(스포너·대사 프롬프트 공통 소스). caller가 마릿수는 클램프.
         public const float EliteDiffThreshold = 1.35f;
         public static int EliteCountFor(int floor, float diff)

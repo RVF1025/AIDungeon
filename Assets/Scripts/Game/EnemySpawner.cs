@@ -41,7 +41,7 @@ namespace AIDungeon.Game
                 // 가로 통로: 역할별로 '세로 열'을 이뤄 근접(앞)→탱커(중)→원거리(뒤) 순으로 배치.
                 // 같은 역할을 세로로 묶어 각개격파를 막고 진형처럼 몰려오게 한다.
                 var order = new[] { EnemyType.Melee, EnemyType.Tank, EnemyType.Ranged };
-                var xFrac = new[] { -0.2f, 0.15f, 0.5f }; // 플레이어(좌측)에서 앞→뒤
+                var xFrac = new[] { -0.1f, 0.15f, 0.4f }; // 플레이어(좌측)에서 앞→뒤(간격 축소)
                 var placed = new List<Vector2>(types.Count);
                 var placedTypes = new List<EnemyType>(types.Count);
                 for (int r = 0; r < order.Length; r++)

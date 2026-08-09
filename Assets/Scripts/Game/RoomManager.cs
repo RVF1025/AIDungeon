@@ -72,16 +72,16 @@ namespace AIDungeon.Game
                 yield return RunCombat(_current);
                 if (_playerHealth.IsDead) { EndGame(); yield break; }
 
-                // 정예/보물 방을 클리어했다면 보물상자
-                if (_arch.treasure) yield return OpenTreasure();
-
                 var profile = _logger.BuildProfile();
                 Debug.Log($"[Floor {_floor} 클리어] {profile.ToPromptLine()}");
 
                 _phase = $"{_floor}층 클리어!";
                 yield return ShowClearBanner();
 
-                // 갈림길 시퀀스: 휴식이면 회복 후 다시 갈림길, 전투형이 선택되면 다음 층 확정
+                // 정예 전투 등 보상 방을 클리어했다면 클리어 배너 다음에 보물상자
+                if (_arch.treasure) yield return OpenTreasure();
+
+                // 갈림길 시퀀스: 휴식/보물방이면 처리 후 다시 갈림길, 전투형이면 다음 층 확정
                 yield return ForkSequence(profile);
                 if (_playerHealth.IsDead) { EndGame(); yield break; }
 
@@ -124,56 +124,54 @@ namespace AIDungeon.Game
                     continue;
                 }
 
-                yield return BuildNextCombat(profile, arch);
+                if (arch.mystery)
+                {
+                    // ??? 방: 정체 해석 → AI가 어조로 정체를 밝히며 상황 평가.
+                    var m = ForkArchetypes.ResolveMystery();
+                    Debug.Log($"[???] 해석: {m.reveal}");
+                    var cm = new ForkComment { tone = Tone.Neutral, line = m.reveal };
+                    bool mready = false;
+                    string situation = $"??? 방의 정체가 '{m.reveal}'로 드러났다. 이 정체를 네 말투로 밝히며 플레이어의 현재 상황을 평가하라.";
+                    StartCoroutine(_client.RequestSituationComment(profile, _persona, situation, c => { cm = c; mready = true; }));
+                    _phase = "AI Director가 상황을 살피는 중...";
+                    if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
+                    float ts = Time.time;
+                    while (!mready || Time.time - ts < 0.8f) yield return null;
+                    if (_loading != null) { Destroy(_loading.gameObject); _loading = null; }
+
+                    string mtone = m.elite ? cm.tone : (cm.tone == Tone.Taunt ? DirectorPolicy.NonTauntTone(profile) : cm.tone);
+
+                    if (!m.combat) // 보물방 등 비전투: AI 해설 + 보물 후 다시 갈림길
+                    {
+                        yield return ShowMysteryMessage(cm.line);
+                        if (m.treasure) yield return OpenTreasure();
+                        profile = _logger.BuildProfile();
+                        continue;
+                    }
+
+                    yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, cm.line, mtone);
+                    yield break;
+                }
+
+                // 일반/정예 전투
+                bool eliteRoom = arch.id == ForkArchetypes.Elite.id;
+                string tone = DirectorPolicy.CanonicalTone(profile);
+                if (!eliteRoom && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile);
+                yield return EnterCombat(profile, arch.id, arch.diffMul, arch.countMul, arch.treasure, eliteRoom,
+                                         _persona.Fallback(tone), tone);
                 yield break;
             }
         }
 
-        // 선택된 전투형 유형으로 다음 층 전투를 구성. ???는 진입 시 무작위로 해석하고 정체를 공개.
-        private IEnumerator BuildNextCombat(PlayerProfile profile, ForkArchetype arch)
+        // 다음 층 전투를 구성(전술=정책, 난이도=층 점진 반영, 대사/톤=인자). 방 유형 수치를 _arch에 보관.
+        private IEnumerator EnterCombat(PlayerProfile profile, string archId, float diffMul, float countMul,
+                                        bool treasure, bool eliteRoom, string analysis, string tone)
         {
             int nextFloor = _floor + 1;
-            float diffMul = arch.diffMul, countMul = arch.countMul;
-            bool treasure = arch.treasure;
-            bool eliteRoom = arch.id == ForkArchetypes.Elite.id; // 정예 전투 = 정예 스폰
-            string reveal = null;
-
-            if (arch.mystery)
-            {
-                var m = ForkArchetypes.ResolveMystery();
-                diffMul = m.diffMul; countMul = m.countMul; treasure = m.treasure;
-                eliteRoom = m.elite; reveal = m.reveal;
-                Debug.Log($"[???] 해석: {reveal}");
-            }
-
             _eliteRoom = eliteRoom;
-            // 이번 전투 방의 유효 유형(적수/보물)을 보관 → RunCombat/보물상자에서 사용.
-            _arch = new ForkArchetype { id = arch.id, combat = true, diffMul = diffMul, countMul = countMul, treasure = treasure };
+            _arch = new ForkArchetype { id = archId, combat = true, diffMul = diffMul, countMul = countMul, treasure = treasure };
 
-            float diff = Mathf.Clamp(DirectorPolicy.CanonicalDifficulty(profile) * diffMul, 0.8f, 1.6f);
-            string tone = DirectorPolicy.CanonicalTone(profile);
-            if (!eliteRoom && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예 방에서만
-
-            string analysis;
-            if (arch.mystery)
-            {
-                // ??? 방: 정체 공개 + AI가 현재 상황을 평가하는 소감(대기 → 로딩).
-                ForkComment cm = null; bool ready = false;
-                string situation = $"방금 ??? 방을 열었고 그 정체는 '{reveal}'이다. 이 전개와 플레이어의 현재 상황을 평가하라.";
-                StartCoroutine(_client.RequestSituationComment(profile, _persona, situation, c => { cm = c; ready = true; }));
-                _phase = "AI Director가 상황을 살피는 중...";
-                if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
-                float ts = Time.time;
-                while (!ready || Time.time - ts < 0.8f) yield return null;
-                if (!eliteRoom && cm.tone == Tone.Taunt) cm.tone = DirectorPolicy.NonTauntTone(profile);
-                tone = cm.tone;
-                analysis = $"{reveal} {cm.line}";
-            }
-            else
-            {
-                analysis = _persona.Fallback(tone);
-            }
-
+            float diff = DirectorPolicy.FloorScaledDifficulty(profile, nextFloor, diffMul); // 층 오를수록 ↑
             var decision = new DirectorDecision
             {
                 composition = DirectorPolicy.CompositionAvoiding(profile, _lastComp),
@@ -193,6 +191,18 @@ namespace AIDungeon.Game
             _lastComp = _current.composition; _lastTopo = _current.topology;
             _hud?.ShowDecision(_current);
             Debug.Log($"[AI Director] 방:{_arch.id} 정예:{_eliteRoom} → {_current}");
+        }
+
+        // ??? 비전투 결과(보물 등)의 AI 어조 해설을 검은 화면에 표시.
+        private IEnumerator ShowMysteryMessage(string line)
+        {
+            var canvas = ScreenUi.BuildCanvas("MysteryCanvas");
+            canvas.sortingOrder = 250;
+            var t = ScreenUi.Label(canvas.transform, "???", 84f, new Vector2(0, 60));
+            t.color = new Color(0.8f, 0.7f, 1f);
+            ScreenUi.Label(canvas.transform, string.IsNullOrEmpty(line) ? "" : $"\"{line}\"", 40f, new Vector2(0, -40));
+            yield return new WaitForSeconds(2.2f);
+            Destroy(canvas.gameObject);
         }
 
         // 한 전투 방: 생성 → 이동 → 스폰 → 전멸 대기 (사망 시 즉시 반환)
