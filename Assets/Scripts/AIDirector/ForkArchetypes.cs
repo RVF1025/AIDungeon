@@ -42,7 +42,8 @@ namespace AIDungeon.Director
         public bool treasure = false;
         public bool elite = false;    // 정예 매복이면 정예 스폰
         public bool combat = true;    // 보물/회복은 전투 없음
-        public string reveal;         // 정체(내용)
+        public string kind;           // "elite" | "swarm" | "treasure" | "heal" (페르소나 공개 문구 선택용)
+        public string reveal;         // 평범한 정체 설명(AI 프롬프트/비전투 화면용)
     }
 
     public static class ForkArchetypes
@@ -144,10 +145,10 @@ namespace AIDungeon.Director
             switch (r)
             {
                 // 전부 리스크/리턴형: 정예 매복 / 다수전투 / 보물 / 회복
-                case 0: return new MysteryOutcome { diffMul = 1.3f, treasure = true, elite = true, reveal = "정예의 매복이었다!" };
-                case 1: return new MysteryOutcome { diffMul = 0.9f, countMul = 1.7f, reveal = "적 떼의 습격이다!" };
-                case 2: return new MysteryOutcome { combat = false, treasure = true, reveal = "뜻밖의 보물을 발견했다!" };
-                default: return new MysteryOutcome { combat = false, heal01 = 0.4f, reveal = "치유의 샘이 상처를 씻어냈다." };
+                case 0: return new MysteryOutcome { kind = "elite", diffMul = 1.3f, treasure = true, elite = true, reveal = "정예 몬스터의 매복" };
+                case 1: return new MysteryOutcome { kind = "swarm", diffMul = 0.9f, countMul = 1.7f, reveal = "적 떼의 습격" };
+                case 2: return new MysteryOutcome { kind = "treasure", combat = false, treasure = true, reveal = "뜻밖의 보물을 발견했다!" };
+                default: return new MysteryOutcome { kind = "heal", combat = false, heal01 = 0.4f, reveal = "치유의 샘이 상처를 씻어냈다." };
             }
         }
     }

@@ -42,6 +42,31 @@ namespace AIDungeon.Director
 
         /// <summary>??? 정체 공개 뒤에 이어붙일 반응(로컬, AI 실패 시 폴백).</summary>
         public string Mystery() => _mystery[Random.Range(0, _mystery.Length)];
+
+        /// <summary>??? 전투 정체를 페르소나 말투로 공개(kind: "elite" | "swarm"). 3종 바리에이션.</summary>
+        public string MysteryReveal(string kind)
+        {
+            string[] pool;
+            switch (id)
+            {
+                case "aristocrat":
+                    pool = kind == "elite"
+                        ? new[] { "정예 몬스터를 준비했습니다.", "이번엔 정예로 맞이하지요.", "특별히 정예를 붙여 드립니다." }
+                        : new[] { "수많은 적을 준비했습니다.", "물량으로 맞이하지요.", "떼로 몰아 드리겠습니다." };
+                    break;
+                case "jester":
+                    pool = kind == "elite"
+                        ? new[] { "짜잔! 정예 몬스터야!", "히히 깜짝 정예 선물이야!", "특별한 정예 등장이야!" }
+                        : new[] { "우르르 몰려온다 히히!", "와글와글 적 떼야!", "떼거지로 놀아보자!" };
+                    break;
+                default: // executioner
+                    pool = kind == "elite"
+                        ? new[] { "정예다. 각오해라.", "강적을 보낸다.", "정예로 짓밟아주마." }
+                        : new[] { "무리가 몰려온다.", "떼로 덮친다.", "수가 곧 죽음이다." };
+                    break;
+            }
+            return pool[Random.Range(0, pool.Length)];
+        }
     }
 
     /// <summary>3인 디렉터 등록소. 런마다 하나가 배정된다.</summary>

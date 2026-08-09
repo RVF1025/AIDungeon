@@ -158,6 +158,7 @@ namespace AIDungeon.Game
                     yield return ShowRestMessage(before, after);
                     profile = _logger.BuildProfile(); // 회복 반영
                     recentEvent = "방금 휴식 공간에서 체력을 회복했다"; // 다음 갈림길은 이 사건에 반응
+                    _floor++; // 휴식도 하나의 방 → 층 증가
                     continue;
                 }
 
@@ -182,6 +183,7 @@ namespace AIDungeon.Game
                             recentEvent = "방금 ??? 방에서 뜻밖의 보물을 얻었다";
                         }
                         profile = _logger.BuildProfile();
+                        _floor++; // ??? 비전투 방도 층 증가
                         continue;
                     }
 
@@ -196,7 +198,8 @@ namespace AIDungeon.Game
                     string mtone = cm.tone;
                     if (mtone == Tone.Impressed) mtone = Tone.Neutral;                 // 감탄은 갈림길 평가 전용
                     if (!m.elite && mtone == Tone.Taunt) mtone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예만
-                    string mline = $"{m.reveal} {cm.line}"; // 명확한 정체 공개 + 반응
+                    // 정체 공개는 페르소나 말투로(고정 문구 X) + AI/로컬 반응
+                    string mline = $"{_persona.MysteryReveal(m.kind)} {cm.line}";
                     yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, mline, mtone);
                     yield break;
                 }
