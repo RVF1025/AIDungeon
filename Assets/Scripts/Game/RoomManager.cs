@@ -142,9 +142,10 @@ namespace AIDungeon.Game
                         continue;
                     }
 
-                    // 전투형 ???: AI가 어조로 정체를 밝히며 상황 평가.
+                    // 전투형 ???: 정체를 명확히 공개(고정 문구) + AI가 뒤에 붙일 반응 한마디.
                     ForkComment cm = null; bool mready = false;
-                    string situation = $"??? 방의 정체가 '{m.reveal}'로 드러났다. 이 정체를 네 말투로 밝히며 플레이어의 현재 상황을 평가하라.";
+                    string situation = $"??? 방의 정체가 '{m.reveal}'로 밝혀졌다. 정체 문구는 이미 화면에 공개되니, " +
+                                       "그 뒤에 자연스럽게 이어붙일 네 말투의 반응 한마디만 작성하라(정체를 다시 설명하지 말 것).";
                     StartCoroutine(_client.RequestSituationComment(profile, _persona, situation, c => { cm = c; mready = true; }));
                     _phase = "AI Director가 상황을 살피는 중...";
                     if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
@@ -153,7 +154,8 @@ namespace AIDungeon.Game
                     if (_loading != null) { Destroy(_loading.gameObject); _loading = null; }
 
                     string mtone = m.elite ? cm.tone : (cm.tone == Tone.Taunt ? DirectorPolicy.NonTauntTone(profile) : cm.tone);
-                    yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, cm.line, mtone);
+                    string mline = $"{m.reveal} {cm.line}"; // 명확한 정체 공개 + AI 반응
+                    yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, mline, mtone);
                     yield break;
                 }
 
