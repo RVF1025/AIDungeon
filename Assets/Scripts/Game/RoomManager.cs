@@ -153,11 +153,22 @@ namespace AIDungeon.Game
                     var m = ForkArchetypes.ResolveMystery();
                     Debug.Log($"[???] 해석: {m.reveal}");
 
-                    if (!m.combat) // 보물방 등 비전투: 멘트 없이 보물만 주고 다시 갈림길
+                    if (!m.combat) // 비전투 결과: 보물 또는 회복 후 다시 갈림길
                     {
-                        if (m.treasure) yield return OpenTreasure();
+                        if (m.heal01 > 0f)
+                        {
+                            int hb = Mathf.CeilToInt(_playerHealth.CurrentHp);
+                            _playerHealth.Heal(_playerHealth.maxHp * m.heal01);
+                            int ha = Mathf.CeilToInt(_playerHealth.CurrentHp);
+                            yield return ShowRestMessage(hb, ha, "???", m.reveal);
+                            recentEvent = "방금 ??? 방에서 체력을 회복했다";
+                        }
+                        else // 보물
+                        {
+                            if (m.treasure) yield return OpenTreasure();
+                            recentEvent = "방금 ??? 방에서 뜻밖의 보물을 얻었다";
+                        }
                         profile = _logger.BuildProfile();
-                        recentEvent = "방금 ??? 방에서 뜻밖의 보물을 얻었다"; // 다음 갈림길은 이 사건에 반응
                         continue;
                     }
 
@@ -172,7 +183,9 @@ namespace AIDungeon.Game
                     while (!mready || Time.time - ts < 0.8f) yield return null;
                     if (_loading != null) { Destroy(_loading.gameObject); _loading = null; }
 
-                    string mtone = m.elite ? cm.tone : (cm.tone == Tone.Taunt ? DirectorPolicy.NonTauntTone(profile) : cm.tone);
+                    string mtone = cm.tone;
+                    if (mtone == Tone.Impressed) mtone = Tone.Neutral;                 // 감탄은 갈림길 평가 전용
+                    if (!m.elite && mtone == Tone.Taunt) mtone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예만
                     string mline = $"{m.reveal} {cm.line}"; // 명확한 정체 공개 + AI 반응
                     yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, mline, mtone);
                     yield break;
@@ -285,14 +298,15 @@ namespace AIDungeon.Game
             archId == ForkArchetypes.Elite.id ? PathKind.Elite :
             archId == ForkArchetypes.Rest.id ? PathKind.Rest : PathKind.Combat;
 
-        // 휴식 공간: 전투 없이 회복 문구만 보여주고 다음 갈림길로.
-        private IEnumerator ShowRestMessage(int before, int after)
+        // 회복 문구(전투 없이 회복량 표시). 휴식 공간과 ??? 회복에서 공용.
+        private IEnumerator ShowRestMessage(int before, int after, string title = "휴식 공간",
+                                            string subtitle = "잠시 숨을 돌렸다.")
         {
             var canvas = ScreenUi.BuildCanvas("RestCanvas"); // 갈림길과 같은 검은 전체화면
             canvas.sortingOrder = 250;
-            var t = ScreenUi.Label(canvas.transform, "휴식 공간", 84f, new Vector2(0, 70));
+            var t = ScreenUi.Label(canvas.transform, title, 84f, new Vector2(0, 70));
             t.color = new Color(0.6f, 1f, 0.8f);
-            ScreenUi.Label(canvas.transform, "잠시 숨을 돌렸다.", 36f, new Vector2(0, -20));
+            ScreenUi.Label(canvas.transform, subtitle, 36f, new Vector2(0, -20));
             var hp = ScreenUi.Label(canvas.transform, $"HP {before} → {after}", 44f, new Vector2(0, -90));
             hp.color = new Color(0.6f, 1f, 0.75f);
             yield return new WaitForSeconds(2.2f);

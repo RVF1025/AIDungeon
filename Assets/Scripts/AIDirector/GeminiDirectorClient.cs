@@ -153,7 +153,8 @@ namespace AIDungeon.Director
             "단, 유저 메시지에 '최근 사건'이 명시되면 직전 전투 평가는 생략하고, 그 사건에 반응하며 " +
             "이 갈림길에서 무엇을 고르면 좋을지 조언·추천을 해라. " +
             "방·지형·위치·공간은 일절 언급 금지. line: 공백 포함 40자 이내 한 문장. " +
-            "tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만.";
+            "tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만. " +
+            "문장은 반드시 마침표(.)·물음표(?)·느낌표(!) 중 하나로 끝맺어라.";
 
         private const string ForkResponseSchema =
             "{\"type\":\"OBJECT\",\"properties\":{" +
@@ -200,7 +201,8 @@ namespace AIDungeon.Director
         private const string SituationSystemInstruction =
             "당신은 탑다운 2D 로그라이크의 AI 던전 디렉터입니다. 주어진 상황을 당신 성격으로 한 문장 논평/평가하세요 " +
             "(플레이어의 현재 상태를 반영한 소감). 방·지형·위치·공간은 일절 언급 금지. " +
-            "line: 공백 포함 40자 이내. tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지 금지.";
+            "line: 공백 포함 40자 이내. tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지 금지. " +
+            "문장은 반드시 마침표(.)·물음표(?)·느낌표(!) 중 하나로 끝맺어라.";
 
         /// <summary>임의의 상황(situation)에 대한 AI 소감 한 문장. 실패 시 성향 폴백 대사.</summary>
         public IEnumerator RequestSituationComment(PlayerProfile profile, DirectorPersona persona,
@@ -252,7 +254,8 @@ namespace AIDungeon.Director
             "tank_bait:탱커 미끼로 유인, balanced:특정 우위 없음(전투 자체나 플레이어 상태에 집중). " +
             "방·지형·위치·공간은 일절 언급 금지. line: 공백 포함 40자 이내 한 문장. " +
             "tone: taunt/impressed/concern/neutral 중 하나(단 taunt는 '정예 강적' 표기가 있을 때만). " +
-            "특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만.";
+            "특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만. " +
+            "문장은 반드시 마침표(.)·물음표(?)·느낌표(!) 중 하나로 끝맺어라.";
 
         /// <summary>다음 전투 진입 대사(적 구성 기반). 정예 방일 때만 taunt 허용. 실패 시 성향 폴백.</summary>
         public IEnumerator RequestCombatEntry(PlayerProfile profile, DirectorPersona persona,
