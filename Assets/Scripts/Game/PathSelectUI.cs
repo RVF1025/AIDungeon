@@ -56,32 +56,60 @@ namespace AIDungeon.Game
         {
             var canvas = ScreenUi.BuildCanvas("PathSelectCanvas");
 
-            // 상단 감독 초상 + 평가 채팅
+            // 상단 감독 대사창(전투 HUD와 동일한 스타일: 초상 옆에 패널+텍스트)
+            var panel = MakePanel(canvas.transform, new Vector2(0, 330), new Vector2(1500, 240),
+                new Color(0.05f, 0.06f, 0.12f, 0.92f));
+            // 상단 파란 테두리 느낌
+            MakePanel(panel, new Vector2(0, 122), new Vector2(1500, 4), new Color(0.4f, 0.75f, 1f, 0.9f));
+
             if (portrait != null)
             {
                 var pgo = new GameObject("ForkPortrait", typeof(RectTransform));
-                pgo.transform.SetParent(canvas.transform, false);
+                pgo.transform.SetParent(panel, false);
                 var prt = pgo.GetComponent<RectTransform>();
-                prt.anchoredPosition = new Vector2(-430, 320);
+                prt.anchoredPosition = new Vector2(-620, 0);
                 prt.sizeDelta = new Vector2(200, 200);
                 var pImg = pgo.AddComponent<Image>();
                 pImg.sprite = portrait;
                 pImg.preserveAspect = true;
                 pImg.raycastTarget = false;
             }
+
+            float textX = portrait != null ? 90f : 0f; // 초상 있으면 오른쪽으로
+            float textW = portrait != null ? 1120f : 1400f;
             if (!string.IsNullOrEmpty(personaName))
-                ScreenUi.Label(canvas.transform, $"감독: {personaName}", 26f, new Vector2(-150, 380), 700f);
-            ScreenUi.Label(canvas.transform, string.IsNullOrEmpty(comment) ? "" : $"\"{comment}\"", 40f,
-                new Vector2(-150, 315), 720f);
-            ScreenUi.Label(canvas.transform, "숫자 키로 갈림길을 선택하시오", 26f, new Vector2(0, 210));
+            {
+                var name = ScreenUi.Label(panel, $"감독: {personaName}", 28f, new Vector2(textX, 72), textW);
+                name.color = new Color(0.55f, 0.8f, 1f);
+                name.alignment = TextAlignmentOptions.Left;
+            }
+            var line = ScreenUi.Label(panel, string.IsNullOrEmpty(comment) ? "" : $"\"{comment}\"",
+                42f, new Vector2(textX, -8), textW);
+            line.alignment = TextAlignmentOptions.Left;
+
+            ScreenUi.Label(canvas.transform, "숫자 키로 갈림길을 선택하시오", 26f, new Vector2(0, 170));
 
             int n = options.Count;
             const float spacing = 500f;
             float x0 = -(n - 1) * 0.5f * spacing;
             for (int i = 0; i < n; i++)
-                BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, -60));
+                BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, -70));
 
             return canvas;
+        }
+
+        private RectTransform MakePanel(Transform parent, Vector2 pos, Vector2 size, Color color)
+        {
+            var go = new GameObject("Panel", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            var img = go.AddComponent<Image>();
+            img.color = color;
+            img.raycastTarget = false;
+            return rt;
         }
 
         private void BuildCard(Transform parent, PathOption opt, int num, Vector2 pos)
