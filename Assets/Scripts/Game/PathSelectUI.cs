@@ -111,7 +111,7 @@ namespace AIDungeon.Game
             float textW = portrait != null ? 1120f : 1400f;
             if (!string.IsNullOrEmpty(personaName))
             {
-                var name = ScreenUi.Label(panel, $"감독: {personaName}", 28f, new Vector2(textX, 72), textW);
+                var name = ScreenUi.Label(panel, personaName, 28f, new Vector2(textX, 72), textW);
                 name.color = new Color(0.55f, 0.8f, 1f);
                 name.alignment = TextAlignmentOptions.Left;
             }
