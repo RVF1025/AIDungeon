@@ -31,12 +31,14 @@ namespace AIDungeon.Game
     {
         private int _chosen;
         private readonly List<RectTransform> _cardRects = new();
+        private RectTransform _cursor;
 
         public IEnumerator Choose(List<PathOption> options, string personaName, string comment,
                                   Sprite portrait, Action<int> onChosen)
         {
             _chosen = -1;
             var canvas = Build(options, personaName, comment, portrait);
+            var canvasRt = canvas.GetComponent<RectTransform>();
 
             while (_chosen < 0)
             {
@@ -49,16 +51,24 @@ namespace AIDungeon.Game
                 }
 
                 var mouse = Mouse.current;
-                if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                if (mouse != null)
                 {
                     Vector2 mp = mouse.position.ReadValue();
-                    for (int i = 0; i < _cardRects.Count; i++)
+                    // 오버레이 캔버스에 얹은 UI 크로스헤어를 마우스 위치로 이동(월드 크로스헤어는 가려짐).
+                    if (_cursor != null &&
+                        RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, mp, null, out var lp))
+                        _cursor.anchoredPosition = lp;
+
+                    if (mouse.leftButton.wasPressedThisFrame)
                     {
-                        // ScreenSpaceOverlay 캔버스라 카메라 인자는 null.
-                        if (RectTransformUtility.RectangleContainsScreenPoint(_cardRects[i], mp, null))
+                        for (int i = 0; i < _cardRects.Count; i++)
                         {
-                            _chosen = i;
-                            break;
+                            // ScreenSpaceOverlay 캔버스라 카메라 인자는 null.
+                            if (RectTransformUtility.RectangleContainsScreenPoint(_cardRects[i], mp, null))
+                            {
+                                _chosen = i;
+                                break;
+                            }
                         }
                     }
                 }
@@ -112,6 +122,17 @@ namespace AIDungeon.Game
             float x0 = -(n - 1) * 0.5f * spacing;
             for (int i = 0; i < n; i++)
                 _cardRects.Add(BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, 90)));
+
+            // 마우스 조준용 UI 크로스헤어(맨 위 레이어). 매 프레임 Choose에서 위치 갱신.
+            var cgo = new GameObject("Crosshair", typeof(RectTransform));
+            cgo.transform.SetParent(canvas.transform, false);
+            _cursor = cgo.GetComponent<RectTransform>();
+            _cursor.anchorMin = _cursor.anchorMax = _cursor.pivot = new Vector2(0.5f, 0.5f);
+            _cursor.sizeDelta = new Vector2(44, 44);
+            var cimg = cgo.AddComponent<Image>();
+            cimg.sprite = SpriteFactory.Tile(60); // 조준점 타일
+            cimg.color = new Color(1f, 1f, 1f, 0.9f);
+            cimg.raycastTarget = false;
 
             return canvas;
         }
