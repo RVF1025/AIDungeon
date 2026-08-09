@@ -111,15 +111,19 @@ namespace AIDungeon.Game
                 int idx = 0;
                 _phase = "갈림길 선택";
                 yield return _select.Choose(options, _hud != null ? _hud.PersonaName : "",
-                                            comment.line, portrait, i => idx = i);
+                                            comment.line, portrait,
+                                            Mathf.CeilToInt(_playerHealth.CurrentHp), Mathf.CeilToInt(_playerHealth.maxHp),
+                                            i => idx = i);
 
                 var arch = cands[idx];
                 _lastArchId = arch.id;
 
                 if (!arch.combat) // 휴식: 전투 없이 회복 + 문구 → 다시 갈림길(연속 휴식은 제외됨)
                 {
+                    int before = Mathf.CeilToInt(_playerHealth.CurrentHp);
                     if (arch.heal01 > 0f) _playerHealth.Heal(_playerHealth.maxHp * arch.heal01);
-                    yield return ShowRestMessage();
+                    int after = Mathf.CeilToInt(_playerHealth.CurrentHp);
+                    yield return ShowRestMessage(before, after, Mathf.CeilToInt(_playerHealth.maxHp));
                     profile = _logger.BuildProfile(); // 회복 반영
                     continue;
                 }
@@ -249,14 +253,16 @@ namespace AIDungeon.Game
             archId == ForkArchetypes.Rest.id ? PathKind.Rest : PathKind.Combat;
 
         // 휴식 공간: 전투 없이 회복 문구만 보여주고 다음 갈림길로.
-        private IEnumerator ShowRestMessage()
+        private IEnumerator ShowRestMessage(int before, int after, int max)
         {
             var canvas = ScreenUi.BuildCanvas("RestCanvas"); // 갈림길과 같은 검은 전체화면
             canvas.sortingOrder = 250;
-            var t = ScreenUi.Label(canvas.transform, "휴식 공간", 84f, new Vector2(0, 40));
+            var t = ScreenUi.Label(canvas.transform, "휴식 공간", 84f, new Vector2(0, 70));
             t.color = new Color(0.6f, 1f, 0.8f);
-            ScreenUi.Label(canvas.transform, "잠시 숨을 돌렸다. 체력을 회복했다.", 36f, new Vector2(0, -50));
-            yield return new WaitForSeconds(2f);
+            ScreenUi.Label(canvas.transform, "잠시 숨을 돌렸다.", 36f, new Vector2(0, -20));
+            var hp = ScreenUi.Label(canvas.transform, $"체력 회복  {before} → {after} / {max}", 44f, new Vector2(0, -90));
+            hp.color = new Color(0.6f, 1f, 0.75f);
+            yield return new WaitForSeconds(2.2f);
             Destroy(canvas.gameObject);
         }
 
