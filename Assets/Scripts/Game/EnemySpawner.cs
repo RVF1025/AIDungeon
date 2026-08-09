@@ -38,17 +38,28 @@ namespace AIDungeon.Game
 
             if (d.topology == Topology.Corridor)
             {
-                // 통로: 근접 → 탱커 → 원거리 순으로 세로 일렬(플레이어 쪽=앞).
-                types.Sort((a, b) => RoleOrder(a).CompareTo(RoleOrder(b)));
-                var eliteSetC = PickEliteIndices(types.Count, eliteCount);
-                float y0 = roomCenter.y - roomHalf.y + 3.5f; // 플레이어(하단)에 가까운 앞줄
-                float y1 = roomCenter.y + roomHalf.y - 2f;    // 통로 안쪽(뒷줄)
-                for (int i = 0; i < types.Count; i++)
+                // 가로 통로: 역할별로 '세로 열'을 이뤄 근접(앞)→탱커(중)→원거리(뒤) 순으로 배치.
+                // 같은 역할을 세로로 묶어 각개격파를 막고 진형처럼 몰려오게 한다.
+                var order = new[] { EnemyType.Melee, EnemyType.Tank, EnemyType.Ranged };
+                var xFrac = new[] { -0.2f, 0.15f, 0.5f }; // 플레이어(좌측)에서 앞→뒤
+                var placed = new List<Vector2>(types.Count);
+                var placedTypes = new List<EnemyType>(types.Count);
+                for (int r = 0; r < order.Length; r++)
                 {
-                    float t = types.Count <= 1 ? 0f : (float)i / (types.Count - 1);
-                    float y = Mathf.Lerp(y0, y1, t);
-                    Spawn(types[i], Clamp(new Vector2(roomCenter.x, y)), d.difficultyModifier, eliteSetC.Contains(i));
+                    int c = types.FindAll(t => t == order[r]).Count;
+                    if (c == 0) continue;
+                    float x = roomCenter.x + roomHalf.x * xFrac[r];
+                    for (int k = 0; k < c; k++)
+                    {
+                        float t = c <= 1 ? 0.5f : (float)k / (c - 1);
+                        float y = Mathf.Lerp(roomCenter.y - (roomHalf.y - 0.8f), roomCenter.y + (roomHalf.y - 0.8f), t);
+                        placedTypes.Add(order[r]);
+                        placed.Add(Clamp(new Vector2(x, y)));
+                    }
                 }
+                var eliteSetC = PickEliteIndices(placed.Count, eliteCount);
+                for (int i = 0; i < placed.Count; i++)
+                    Spawn(placedTypes[i], placed[i], d.difficultyModifier, eliteSetC.Contains(i));
                 return;
             }
 
@@ -83,14 +94,6 @@ namespace AIDungeon.Game
             for (int i = 0; i < count; i++) list.Add(PickType(m, r, t));
             return list;
         }
-
-        // 통로 진형: 근접(앞) → 탱커(중) → 원거리(뒤)
-        private static int RoleOrder(EnemyType t) => t switch
-        {
-            EnemyType.Melee => 0,
-            EnemyType.Tank => 1,
-            _ => 2, // Ranged
-        };
 
         private static (float, float, float) Weights(string composition) => composition switch
         {
