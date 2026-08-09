@@ -121,9 +121,10 @@ namespace AIDungeon.Game
                         mysteryRoll = ForkArchetypes.ResolveMystery();
                         if (!mysteryRoll.combat) { entryReady[i] = true; continue; } // 보물/회복: 해설 불필요
                         var mo = mysteryRoll;
-                        string sit = $"??? 방의 정체가 '{mo.reveal}'로 밝혀졌다. 정체 문구는 이미 화면에 공개되니, " +
-                                     "그 뒤에 자연스럽게 이어붙일 네 말투의 반응 한마디만 작성하라(정체를 다시 설명하지 말 것).";
-                        StartCoroutine(_client.RequestSituationComment(profile, _persona, sit, _persona.Mystery(),
+                        // 정체 공개 자체를 AI가 페르소나 말투로 생성(미리 받아둠). 실패 시 페르소나 로컬 공개로 폴백.
+                        string sit = $"이번 ??? 방의 정체는 '{mo.reveal}'이다. 무엇이 나왔는지 플레이어에게 네 말투로 " +
+                                     "분명히 알리며 짧게 한마디 하라(정체가 반드시 드러나게).";
+                        StartCoroutine(_client.RequestSituationComment(profile, _persona, sit, _persona.MysteryReveal(mo.kind),
                             c => { entry[oi] = c; entryReady[oi] = true; }));
                         continue;
                     }
@@ -194,12 +195,12 @@ namespace AIDungeon.Game
                         if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
                         while (!entryReady[idx]) yield return null;
                     }
-                    var cm = entry[idx] ?? new ForkComment { tone = Tone.Neutral, line = _persona.Mystery() };
+                    var cm = entry[idx] ?? new ForkComment { tone = Tone.Neutral, line = _persona.MysteryReveal(m.kind) };
                     string mtone = cm.tone;
                     if (mtone == Tone.Impressed) mtone = Tone.Neutral;                 // 감탄은 갈림길 평가 전용
                     if (!m.elite && mtone == Tone.Taunt) mtone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예만
-                    // 정체 공개는 페르소나 말투로(고정 문구 X) + AI/로컬 반응
-                    string mline = $"{_persona.MysteryReveal(m.kind)} {cm.line}";
+                    // AI가 페르소나 말투로 정체를 밝힌 대사(선요청). 실패 시 페르소나 로컬 공개.
+                    string mline = cm.line;
                     yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, mline, mtone);
                     yield break;
                 }
