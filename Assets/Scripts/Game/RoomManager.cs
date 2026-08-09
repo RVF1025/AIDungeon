@@ -110,11 +110,24 @@ namespace AIDungeon.Game
                 if (entryTopo == Topology.Corridor && entryComp == Composition.RusherPack) entryComp = Composition.KiterPack;
                 var entry = new ForkComment[cands.Count];
                 var entryReady = new bool[cands.Count];
+                MysteryOutcome mysteryRoll = null; // ???는 이 시점에 굴려 해설도 미리 받아둔다
                 for (int i = 0; i < cands.Count; i++)
                 {
                     var a = cands[i];
-                    if (!a.combat || a.mystery) { entryReady[i] = true; continue; }
-                    int oi = i; bool el = a.id == ForkArchetypes.Elite.id;
+                    if (!a.combat) { entryReady[i] = true; continue; } // 휴식
+                    int oi = i;
+                    if (a.mystery)
+                    {
+                        mysteryRoll = ForkArchetypes.ResolveMystery();
+                        if (!mysteryRoll.combat) { entryReady[i] = true; continue; } // 보물/회복: 해설 불필요
+                        var mo = mysteryRoll;
+                        string sit = $"??? 방의 정체가 '{mo.reveal}'로 밝혀졌다. 정체 문구는 이미 화면에 공개되니, " +
+                                     "그 뒤에 자연스럽게 이어붙일 네 말투의 반응 한마디만 작성하라(정체를 다시 설명하지 말 것).";
+                        StartCoroutine(_client.RequestSituationComment(profile, _persona, sit, _persona.Mystery(),
+                            c => { entry[oi] = c; entryReady[oi] = true; }));
+                        continue;
+                    }
+                    bool el = a.id == ForkArchetypes.Elite.id;
                     StartCoroutine(_client.RequestCombatEntry(profile, _persona, entryComp, el,
                         c => { entry[oi] = c; entryReady[oi] = true; }));
                 }
@@ -132,7 +145,7 @@ namespace AIDungeon.Game
                 yield return _select.Choose(options, _hud != null ? _hud.PersonaName : "",
                                             comment.line, portrait,
                                             Mathf.CeilToInt(_playerHealth.CurrentHp), Mathf.CeilToInt(_playerHealth.maxHp),
-                                            i => idx = i);
+                                            _floor, i => idx = i);
 
                 var arch = cands[idx];
                 _lastArchId = arch.id;
@@ -150,7 +163,7 @@ namespace AIDungeon.Game
 
                 if (arch.mystery)
                 {
-                    var m = ForkArchetypes.ResolveMystery();
+                    var m = mysteryRoll; // 갈림길 표시 때 이미 굴렸다
                     Debug.Log($"[???] 해석: {m.reveal}");
 
                     if (!m.combat) // 비전투 결과: 보물 또는 회복 후 다시 갈림길
@@ -172,21 +185,18 @@ namespace AIDungeon.Game
                         continue;
                     }
 
-                    // 전투형 ???: 정체를 명확히 공개(고정 문구) + AI가 뒤에 붙일 반응 한마디.
-                    ForkComment cm = null; bool mready = false;
-                    string situation = $"??? 방의 정체가 '{m.reveal}'로 밝혀졌다. 정체 문구는 이미 화면에 공개되니, " +
-                                       "그 뒤에 자연스럽게 이어붙일 네 말투의 반응 한마디만 작성하라(정체를 다시 설명하지 말 것).";
-                    StartCoroutine(_client.RequestSituationComment(profile, _persona, situation, c => { cm = c; mready = true; }));
-                    _phase = "AI Director가 상황을 살피는 중...";
-                    if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
-                    float ts = Time.time;
-                    while (!mready || Time.time - ts < 0.8f) yield return null;
-                    if (_loading != null) { Destroy(_loading.gameObject); _loading = null; }
-
+                    // 전투형 ???: 선요청해 둔 해설(정체 공개 + AI/로컬 반응) 사용.
+                    if (!entryReady[idx])
+                    {
+                        _phase = "다음 전투 준비...";
+                        if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
+                        while (!entryReady[idx]) yield return null;
+                    }
+                    var cm = entry[idx] ?? new ForkComment { tone = Tone.Neutral, line = _persona.Mystery() };
                     string mtone = cm.tone;
                     if (mtone == Tone.Impressed) mtone = Tone.Neutral;                 // 감탄은 갈림길 평가 전용
                     if (!m.elite && mtone == Tone.Taunt) mtone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예만
-                    string mline = $"{m.reveal} {cm.line}"; // 명확한 정체 공개 + AI 반응
+                    string mline = $"{m.reveal} {cm.line}"; // 명확한 정체 공개 + 반응
                     yield return EnterCombat(profile, arch.id, m.diffMul, m.countMul, m.treasure, m.elite, mline, mtone);
                     yield break;
                 }

@@ -12,13 +12,15 @@ namespace AIDungeon.Director
         public readonly string name;
         public readonly string voice; // 시스템 프롬프트 조각(말투 지시)
 
-        private readonly string[] _taunt, _impressed, _concern, _neutral, _intro, _fork;
+        private readonly string[] _taunt, _impressed, _concern, _neutral, _intro, _fork, _mystery;
 
         public DirectorPersona(string id, string name, string voice,
-            string[] taunt, string[] impressed, string[] concern, string[] neutral, string[] intro, string[] fork)
+            string[] taunt, string[] impressed, string[] concern, string[] neutral, string[] intro, string[] fork,
+            string[] mystery)
         {
             this.id = id; this.name = name; this.voice = voice;
             _taunt = taunt; _impressed = impressed; _concern = concern; _neutral = neutral; _intro = intro; _fork = fork;
+            _mystery = mystery;
         }
 
         public string Fallback(string tone)
@@ -37,6 +39,9 @@ namespace AIDungeon.Director
 
         /// <summary>갈림길에서 선택을 유도하는 대사(로컬, 즉시).</summary>
         public string Fork() => _fork[Random.Range(0, _fork.Length)];
+
+        /// <summary>??? 정체 공개 뒤에 이어붙일 반응(로컬, AI 실패 시 폴백).</summary>
+        public string Mystery() => _mystery[Random.Range(0, _mystery.Length)];
     }
 
     /// <summary>3인 디렉터 등록소. 런마다 하나가 배정된다.</summary>
@@ -68,7 +73,11 @@ namespace AIDungeon.Director
             fork: new[] {
                 "자, 어느 길을 택하시겠습니까?",
                 "선택은 당신의 몫이지요. 신중하시길.",
-                "어느 쪽이든, 제겐 흥미로운 구경거리랍니다." });
+                "어느 쪽이든, 제겐 흥미로운 구경거리랍니다." },
+            mystery: new[] {
+                "자, 견뎌 보시죠.",
+                "제법 흥미로운 전개로군요.",
+                "어디 실력을 보여주십시오." });
 
         public static readonly DirectorPersona Jester = new(
             "jester", "광기의 어릿광대",
@@ -96,7 +105,11 @@ namespace AIDungeon.Director
             fork: new[] {
                 "히히, 어느 문을 열래~?",
                 "골라골라~ 뭐가 나올지 아무도 몰라~!",
-                "자, 운명의 갈림길이야~ 두근두근하지?" });
+                "자, 운명의 갈림길이야~ 두근두근하지?" },
+            mystery: new[] {
+                "히히 신난다!",
+                "깜짝 놀랐지?",
+                "자, 신나게 놀아볼까?" });
 
         public static readonly DirectorPersona Executioner = new(
             "executioner", "처형자",
@@ -124,7 +137,11 @@ namespace AIDungeon.Director
             fork: new[] {
                 "길을 골라라. 어차피 끝은 같다.",
                 "어느 쪽이든 무덤으로 통한다.",
-                "선택해라. 망설임은 약함이다." });
+                "선택해라. 망설임은 약함이다." },
+            mystery: new[] {
+                "각오해라.",
+                "도망은 없다.",
+                "무릎 꿇을 시간이다." });
 
         private static readonly DirectorPersona[] All = { Aristocrat, Jester, Executioner };
 

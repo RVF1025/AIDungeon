@@ -204,9 +204,9 @@ namespace AIDungeon.Director
             "line: 공백 포함 40자 이내. tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지 금지. " +
             "문장은 반드시 마침표(.)·물음표(?)·느낌표(!) 중 하나로 끝맺어라.";
 
-        /// <summary>임의의 상황(situation)에 대한 AI 소감 한 문장. 실패 시 성향 폴백 대사.</summary>
+        /// <summary>임의의 상황(situation)에 대한 AI 소감 한 문장. 실패 시 fallbackLine(로컬)로 대체.</summary>
         public IEnumerator RequestSituationComment(PlayerProfile profile, DirectorPersona persona,
-                                                   string situation, Action<ForkComment> onResult)
+                                                   string situation, string fallbackLine, Action<ForkComment> onResult)
         {
             string url = proxyUrl;
             if (!string.IsNullOrEmpty(modelOverride))
@@ -239,10 +239,7 @@ namespace AIDungeon.Director
                     Debug.LogWarning($"[AIDirector] 상황 평가 실패({req.result}) → 폴백. {req.error}");
 
                 if (comment == null)
-                {
-                    string tone = DirectorPolicy.NonTauntTone(profile);
-                    comment = new ForkComment { tone = tone, line = persona.Fallback(tone) };
-                }
+                    comment = new ForkComment { tone = DirectorPolicy.NonTauntTone(profile), line = fallbackLine };
                 onResult?.Invoke(comment);
             }
         }
