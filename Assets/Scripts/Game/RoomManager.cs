@@ -155,10 +155,12 @@ namespace AIDungeon.Game
                     yield break;
                 }
 
-                // 일반/정예 전투. 정예 방은 강적을 붙였으니 도발 톤으로(감탄 대신 위협).
+                // 일반/정예 전투 진입 톤. 감탄(impressed)은 회고성이라 갈림길 평가에서만 쓴다.
+                // 정예=도발(강적 위협), 저체력=걱정, 그 외=관찰(neutral).
                 bool eliteRoom = arch.id == ForkArchetypes.Elite.id;
-                string tone = eliteRoom ? Tone.Taunt : DirectorPolicy.CanonicalTone(profile);
-                if (!eliteRoom && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile);
+                string tone = eliteRoom ? Tone.Taunt
+                            : profile.avgHpPct <= 0.35f ? Tone.Concern
+                            : Tone.Neutral;
                 yield return EnterCombat(profile, arch.id, arch.diffMul, arch.countMul, arch.treasure, eliteRoom,
                                          _persona.Fallback(tone), tone);
                 yield break;
