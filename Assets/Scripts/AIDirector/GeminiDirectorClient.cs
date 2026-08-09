@@ -193,6 +193,54 @@ namespace AIDungeon.Director
             }
         }
 
+        private const string SituationSystemInstruction =
+            "당신은 탑다운 2D 로그라이크의 AI 던전 디렉터입니다. 주어진 상황을 당신 성격으로 한 문장 논평/평가하세요 " +
+            "(플레이어의 현재 상태를 반영한 소감). 방·지형·위치·공간은 일절 언급 금지. " +
+            "line: 공백 포함 40자 이내. tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지 금지.";
+
+        /// <summary>임의의 상황(situation)에 대한 AI 소감 한 문장. 실패 시 성향 폴백 대사.</summary>
+        public IEnumerator RequestSituationComment(PlayerProfile profile, DirectorPersona persona,
+                                                   string situation, Action<ForkComment> onResult)
+        {
+            string url = proxyUrl;
+            if (!string.IsNullOrEmpty(modelOverride))
+                url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
+
+            var sb = new StringBuilder(1024);
+            sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
+            AppendJsonString(sb, SituationSystemInstruction + " " + persona.voice);
+            sb.Append("}]},\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":");
+            AppendJsonString(sb, $"{profile.ToPromptLine()} | 상황: {situation}");
+            sb.Append("}]}],\"generationConfig\":{\"responseMimeType\":\"application/json\",\"responseSchema\":");
+            sb.Append(ForkResponseSchema);
+            sb.Append(",\"temperature\":");
+            sb.Append(temperature.ToString("0.0", CultureInfo.InvariantCulture));
+            sb.Append("}}");
+
+            using (var req = new UnityWebRequest(url, "POST"))
+            {
+                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(sb.ToString()));
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                req.timeout = Mathf.CeilToInt(timeoutSeconds);
+
+                yield return req.SendWebRequest();
+
+                ForkComment comment = null;
+                if (req.result == UnityWebRequest.Result.Success)
+                    comment = ParseForkComment(req.downloadHandler.text, persona);
+                else
+                    Debug.LogWarning($"[AIDirector] 상황 평가 실패({req.result}) → 폴백. {req.error}");
+
+                if (comment == null)
+                {
+                    string tone = DirectorPolicy.NonTauntTone(profile);
+                    comment = new ForkComment { tone = tone, line = persona.Fallback(tone) };
+                }
+                onResult?.Invoke(comment);
+            }
+        }
+
         [Serializable] private class ForkCommentDto { public string line, tone; }
 
         private ForkComment ParseForkComment(string json, DirectorPersona persona)

@@ -31,40 +31,30 @@ namespace AIDungeon.Game
             roomHalf = half;
         }
 
-        public void SpawnWave(DirectorDecision d, int count, int floor)
+        // eliteCount: 이 방에서 정예로 만들 마릿수(정예 전투 방에서만 > 0). 호출자가 결정.
+        public void SpawnWave(DirectorDecision d, int count, int eliteCount)
         {
             var types = RollTypes(d.composition, d.topology, count);
 
             if (d.topology == Topology.Corridor)
-                // 통로: 근접 없음. 좌측(플레이어 쪽)부터 탱커 → 원거리 순 진형
-                types.Sort((a, b) => RoleOrder(a).CompareTo(RoleOrder(b)));
-
-            // 정예(챔피언) 지정: 깊은 층·높은 난이도일수록 더 많이(최소 1마리는 일반 유지).
-            var eliteSet = PickEliteIndices(types.Count, EliteCount(d, floor, types.Count));
-
-            if (d.topology == Topology.Corridor)
             {
-                float x0 = roomCenter.x + roomHalf.x * 0.2f;
-                float x1 = roomCenter.x + roomHalf.x - 2f;
+                // 통로: 근접 → 탱커 → 원거리 순으로 세로 일렬(플레이어 쪽=앞).
+                types.Sort((a, b) => RoleOrder(a).CompareTo(RoleOrder(b)));
+                var eliteSetC = PickEliteIndices(types.Count, eliteCount);
+                float y0 = roomCenter.y - roomHalf.y + 3.5f; // 플레이어(하단)에 가까운 앞줄
+                float y1 = roomCenter.y + roomHalf.y - 2f;    // 통로 안쪽(뒷줄)
                 for (int i = 0; i < types.Count; i++)
                 {
-                    float t = types.Count <= 1 ? 0.5f : (float)i / (types.Count - 1);
-                    float x = Mathf.Lerp(x0, x1, t);
-                    float y = roomCenter.y + ((i % 2 == 0) ? 1f : -1f) * Random.Range(0f, roomHalf.y - 0.8f);
-                    Spawn(types[i], Clamp(new Vector2(x, y)), d.difficultyModifier, eliteSet.Contains(i));
+                    float t = types.Count <= 1 ? 0f : (float)i / (types.Count - 1);
+                    float y = Mathf.Lerp(y0, y1, t);
+                    Spawn(types[i], Clamp(new Vector2(roomCenter.x, y)), d.difficultyModifier, eliteSetC.Contains(i));
                 }
                 return;
             }
 
+            var eliteSet = PickEliteIndices(types.Count, eliteCount);
             for (int i = 0; i < types.Count; i++)
                 Spawn(types[i], SpawnPos(d.topology, i, count), d.difficultyModifier, eliteSet.Contains(i));
-        }
-
-        // 정예 수: DirectorPolicy 공통 규칙 사용. 최대 3, 최소 한 마리는 일반 유지.
-        private static int EliteCount(DirectorDecision d, int floor, int total)
-        {
-            int n = DirectorPolicy.EliteCountFor(floor, d.difficultyModifier);
-            return Mathf.Clamp(n, 0, Mathf.Min(3, Mathf.Max(0, total - 1)));
         }
 
         private static HashSet<int> PickEliteIndices(int total, int eliteCount)
@@ -82,11 +72,10 @@ namespace AIDungeon.Game
             return set;
         }
 
-        // topology별 배치 규칙: corridor=근접 제외, encircle=탱커 제외
+        // topology별 배치 규칙: encircle=탱커 제외(포위). corridor는 근접~원거리 모두 등장(진형 형성).
         private List<EnemyType> RollTypes(string composition, string topology, int count)
         {
             var (m, r, t) = Weights(composition);
-            if (topology == Topology.Corridor) m = 0f; // 근접 없음
             if (topology == Topology.Encircle) t = 0f; // 탱커 없음
             if (m + r + t <= 0f) { m = r = t = 1f; }   // 안전장치
 
@@ -95,12 +84,12 @@ namespace AIDungeon.Game
             return list;
         }
 
-        // 통로 정렬용: 탱커가 앞(왼쪽), 원거리가 뒤(오른쪽)
+        // 통로 진형: 근접(앞) → 탱커(중) → 원거리(뒤)
         private static int RoleOrder(EnemyType t) => t switch
         {
-            EnemyType.Tank => 0,
-            EnemyType.Ranged => 1,
-            _ => 2,
+            EnemyType.Melee => 0,
+            EnemyType.Tank => 1,
+            _ => 2, // Ranged
         };
 
         private static (float, float, float) Weights(string composition) => composition switch

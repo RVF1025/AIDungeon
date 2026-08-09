@@ -28,6 +28,7 @@ namespace AIDungeon.Game
         private Room _room;
         private DirectorDecision _current;
         private ForkArchetype _arch = ForkArchetypes.Normal; // 이번 층 방 유형(적수/보물 등)
+        private bool _eliteRoom;                              // 이번 방이 정예 스폰 방인지(정예 전투/정예 매복)
         private string _lastArchId = "";                     // 직전 노드 유형(휴식 연속 방지)
         private string _lastComp = "", _lastTopo = ""; // 직전 층(변화 보장용)
         private LoadingScreen _loading;
@@ -134,22 +135,44 @@ namespace AIDungeon.Game
             int nextFloor = _floor + 1;
             float diffMul = arch.diffMul, countMul = arch.countMul;
             bool treasure = arch.treasure;
+            bool eliteRoom = arch.id == ForkArchetypes.Elite.id; // 정예 전투 = 정예 스폰
             string reveal = null;
 
             if (arch.mystery)
             {
                 var m = ForkArchetypes.ResolveMystery();
-                diffMul = m.diffMul; countMul = m.countMul; treasure = m.treasure; reveal = m.reveal;
+                diffMul = m.diffMul; countMul = m.countMul; treasure = m.treasure;
+                eliteRoom = m.elite; reveal = m.reveal;
                 Debug.Log($"[???] 해석: {reveal}");
             }
 
+            _eliteRoom = eliteRoom;
             // 이번 전투 방의 유효 유형(적수/보물)을 보관 → RunCombat/보물상자에서 사용.
             _arch = new ForkArchetype { id = arch.id, combat = true, diffMul = diffMul, countMul = countMul, treasure = treasure };
 
             float diff = Mathf.Clamp(DirectorPolicy.CanonicalDifficulty(profile) * diffMul, 0.8f, 1.6f);
-            bool elite = DirectorPolicy.WillSpawnElite(nextFloor, diff);
             string tone = DirectorPolicy.CanonicalTone(profile);
-            if (!elite && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile);
+            if (!eliteRoom && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예 방에서만
+
+            string analysis;
+            if (arch.mystery)
+            {
+                // ??? 방: 정체 공개 + AI가 현재 상황을 평가하는 소감(대기 → 로딩).
+                ForkComment cm = null; bool ready = false;
+                string situation = $"방금 ??? 방을 열었고 그 정체는 '{reveal}'이다. 이 전개와 플레이어의 현재 상황을 평가하라.";
+                StartCoroutine(_client.RequestSituationComment(profile, _persona, situation, c => { cm = c; ready = true; }));
+                _phase = "AI Director가 상황을 살피는 중...";
+                if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
+                float ts = Time.time;
+                while (!ready || Time.time - ts < 0.8f) yield return null;
+                if (!eliteRoom && cm.tone == Tone.Taunt) cm.tone = DirectorPolicy.NonTauntTone(profile);
+                tone = cm.tone;
+                analysis = $"{reveal} {cm.line}";
+            }
+            else
+            {
+                analysis = _persona.Fallback(tone);
+            }
 
             var decision = new DirectorDecision
             {
@@ -157,11 +180,10 @@ namespace AIDungeon.Game
                 topology = DirectorPolicy.ChooseTopologyAvoiding(profile, nextFloor, _lastTopo),
                 difficultyModifier = diff,
                 tone = tone,
-                // ??? 방은 정체 공개, 그 외엔 성향 대사.
-                analysis = !string.IsNullOrEmpty(reveal) ? reveal : _persona.Fallback(tone),
+                analysis = analysis,
             };
 
-            // 전환 페이싱용 로딩(AI 재요청 없음).
+            // 전환 페이싱용 로딩.
             _phase = "다음 스테이지 준비...";
             if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
             float t0 = Time.time;
@@ -170,7 +192,7 @@ namespace AIDungeon.Game
             _current = decision;
             _lastComp = _current.composition; _lastTopo = _current.topology;
             _hud?.ShowDecision(_current);
-            Debug.Log($"[AI Director] 방:{_arch.id} → {_current}");
+            Debug.Log($"[AI Director] 방:{_arch.id} 정예:{_eliteRoom} → {_current}");
         }
 
         // 한 전투 방: 생성 → 이동 → 스폰 → 전멸 대기 (사망 시 즉시 반환)
@@ -184,7 +206,9 @@ namespace AIDungeon.Game
 
             _logger.ResetFloor();
             int count = Mathf.Max(1, Mathf.RoundToInt(EnemyCount(_floor) * _arch.countMul)); // 유형별 적 수 배수
-            _spawner.SpawnWave(decision, count, _floor);
+            // 정예는 정예 방에서만, 대신 비중 상승(약 절반). 그 외 방은 0.
+            int eliteCount = _eliteRoom ? Mathf.Clamp(count / 2, 2, count) : 0;
+            _spawner.SpawnWave(decision, count, eliteCount);
             _phase = $"{_floor}층 — 전투";
             yield return null; // 스폰 반영
 
@@ -231,7 +255,7 @@ namespace AIDungeon.Game
         // 휴식 공간: 전투 없이 회복 문구만 보여주고 다음 갈림길로.
         private IEnumerator ShowRestMessage()
         {
-            var canvas = ScreenUi.BuildCanvas("RestCanvas", 0.5f);
+            var canvas = ScreenUi.BuildCanvas("RestCanvas"); // 갈림길과 같은 검은 전체화면
             canvas.sortingOrder = 250;
             var t = ScreenUi.Label(canvas.transform, "휴식 공간", 84f, new Vector2(0, 40));
             t.color = new Color(0.6f, 1f, 0.8f);
@@ -259,7 +283,7 @@ namespace AIDungeon.Game
                     tile = PotionTile; label = "체력 30% 회복"; break;
             }
 
-            var canvas = ScreenUi.BuildCanvas("TreasureCanvas", 0.6f);
+            var canvas = ScreenUi.BuildCanvas("TreasureCanvas"); // 갈림길과 같은 검은 전체화면
             canvas.sortingOrder = 260;
             var title = ScreenUi.Label(canvas.transform, "보물상자!", 80f, new Vector2(0, 150));
             title.color = new Color(1f, 0.85f, 0.35f);

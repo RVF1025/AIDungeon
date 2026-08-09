@@ -31,7 +31,8 @@ namespace AIDungeon.Game
             switch (d.topology)
             {
                 case Topology.Corridor:
-                    half = new Vector2(19f, 2.6f); spawn = center + new Vector2(-half.x + 2.5f, 0); break;
+                    // 세로 통로: 플레이어는 하단, 적은 위로 근접→탱커→원거리 일렬
+                    half = new Vector2(2.6f, 19f); spawn = center + new Vector2(0, -half.y + 2.5f); break;
                 case Topology.Open:
                     half = new Vector2(14f, 9f); spawn = center; break;
                 case Topology.Cover:
