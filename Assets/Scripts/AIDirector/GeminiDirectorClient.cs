@@ -162,40 +162,51 @@ namespace AIDungeon.Director
             "\"tone\":{\"type\":\"STRING\",\"enum\":[\"taunt\",\"impressed\",\"concern\",\"neutral\"]}}," +
             "\"required\":[\"line\",\"tone\"],\"propertyOrdering\":[\"line\",\"tone\"]}";
 
+        // 프록시로 POST 후 응답 텍스트를 콜백(null=실패). ConnectionError는 1회 재시도
+        // (Vercel 콜드 스타트·일시 끊김 흡수). 모든 AI 요청이 공유.
+        private IEnumerator PostJson(byte[] payload, Action<string> onText)
+        {
+            string url = proxyUrl;
+            if (!string.IsNullOrEmpty(modelOverride))
+                url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
+
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                using (var req = new UnityWebRequest(url, "POST"))
+                {
+                    req.uploadHandler = new UploadHandlerRaw(payload);
+                    req.downloadHandler = new DownloadHandlerBuffer();
+                    req.SetRequestHeader("Content-Type", "application/json");
+                    req.timeout = Mathf.CeilToInt(timeoutSeconds);
+
+                    yield return req.SendWebRequest();
+
+                    if (req.result == UnityWebRequest.Result.Success) { onText?.Invoke(req.downloadHandler.text); yield break; }
+
+                    Debug.LogWarning($"[AIDirector] 요청 실패({req.result}) 시도 {attempt + 1}/2. {req.error}");
+                    bool retriable = req.result == UnityWebRequest.Result.ConnectionError
+                                  || req.result == UnityWebRequest.Result.DataProcessingError;
+                    if (attempt == 0 && retriable) { yield return new WaitForSeconds(0.5f); continue; }
+                    break;
+                }
+            }
+            onText?.Invoke(null);
+        }
+
         /// <summary>
         /// 제시된 갈림길 선택지들을 AI가 한 문장으로 평가. 실패 시 성향 로컬 대사로 폴백(게임 안 멈춤).
         /// </summary>
         public IEnumerator RequestForkComment(PlayerProfile profile, DirectorPersona persona,
                                               List<ForkArchetype> options, string recentEvent, Action<ForkComment> onResult)
         {
-            string url = proxyUrl;
-            if (!string.IsNullOrEmpty(modelOverride))
-                url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
-
             byte[] payload = Encoding.UTF8.GetBytes(BuildForkRequestBody(profile, persona.voice, options, recentEvent));
+            string resp = null;
+            yield return PostJson(payload, t => resp = t);
 
-            using (var req = new UnityWebRequest(url, "POST"))
-            {
-                req.uploadHandler = new UploadHandlerRaw(payload);
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                req.timeout = Mathf.CeilToInt(timeoutSeconds);
-
-                yield return req.SendWebRequest();
-
-                ForkComment comment = null;
-                if (req.result == UnityWebRequest.Result.Success)
-                    comment = ParseForkComment(req.downloadHandler.text, persona);
-                else
-                    Debug.LogWarning($"[AIDirector] 갈림길 평가 실패({req.result}) → 폴백. {req.error}");
-
-                if (comment == null)
-                {
-                    string tone = DirectorPolicy.NonTauntTone(profile);
-                    comment = new ForkComment { tone = tone, line = persona.Fork() };
-                }
-                onResult?.Invoke(comment);
-            }
+            ForkComment comment = resp != null ? ParseForkComment(resp, persona) : null;
+            if (comment == null)
+                comment = new ForkComment { tone = DirectorPolicy.NonTauntTone(profile), line = persona.Fork() };
+            onResult?.Invoke(comment);
         }
 
         private const string SituationSystemInstruction =
@@ -208,10 +219,6 @@ namespace AIDungeon.Director
         public IEnumerator RequestSituationComment(PlayerProfile profile, DirectorPersona persona,
                                                    string situation, string fallbackLine, Action<ForkComment> onResult)
         {
-            string url = proxyUrl;
-            if (!string.IsNullOrEmpty(modelOverride))
-                url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
-
             var sb = new StringBuilder(1024);
             sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
             AppendJsonString(sb, SituationSystemInstruction + " " + persona.voice);
@@ -223,25 +230,13 @@ namespace AIDungeon.Director
             sb.Append(temperature.ToString("0.0", CultureInfo.InvariantCulture));
             sb.Append("}}");
 
-            using (var req = new UnityWebRequest(url, "POST"))
-            {
-                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(sb.ToString()));
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                req.timeout = Mathf.CeilToInt(timeoutSeconds);
+            string resp = null;
+            yield return PostJson(Encoding.UTF8.GetBytes(sb.ToString()), t => resp = t);
 
-                yield return req.SendWebRequest();
-
-                ForkComment comment = null;
-                if (req.result == UnityWebRequest.Result.Success)
-                    comment = ParseForkComment(req.downloadHandler.text, persona);
-                else
-                    Debug.LogWarning($"[AIDirector] 상황 평가 실패({req.result}) → 폴백. {req.error}");
-
-                if (comment == null)
-                    comment = new ForkComment { tone = DirectorPolicy.NonTauntTone(profile), line = fallbackLine };
-                onResult?.Invoke(comment);
-            }
+            ForkComment comment = resp != null ? ParseForkComment(resp, persona) : null;
+            if (comment == null)
+                comment = new ForkComment { tone = DirectorPolicy.NonTauntTone(profile), line = fallbackLine };
+            onResult?.Invoke(comment);
         }
 
         private const string EntrySystemInstruction =
@@ -258,10 +253,6 @@ namespace AIDungeon.Director
         public IEnumerator RequestCombatEntry(PlayerProfile profile, DirectorPersona persona,
                                               string composition, bool elite, Action<ForkComment> onResult)
         {
-            string url = proxyUrl;
-            if (!string.IsNullOrEmpty(modelOverride))
-                url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
-
             string userText = $"{profile.ToPromptLine()} | 다음 전투 적 구성: {composition} | " +
                               (elite ? "정예 강적 등장(도발 허용)" : "일반 난이도(도발 금지)") + " | 진입 대사.";
 
@@ -276,41 +267,33 @@ namespace AIDungeon.Director
             sb.Append(temperature.ToString("0.0", CultureInfo.InvariantCulture));
             sb.Append("}}");
 
-            using (var req = new UnityWebRequest(url, "POST"))
+            string resp = null;
+            yield return PostJson(Encoding.UTF8.GetBytes(sb.ToString()), t => resp = t);
+
+            ForkComment cm = null;
+            if (resp != null)
             {
-                req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(sb.ToString()));
-                req.downloadHandler = new DownloadHandlerBuffer();
-                req.SetRequestHeader("Content-Type", "application/json");
-                req.timeout = Mathf.CeilToInt(timeoutSeconds);
-
-                yield return req.SendWebRequest();
-
-                ForkComment cm = null;
-                if (req.result == UnityWebRequest.Result.Success)
+                try
                 {
-                    try
+                    var dto = JsonUtility.FromJson<ForkCommentDto>(resp);
+                    if (dto != null)
                     {
-                        var dto = JsonUtility.FromJson<ForkCommentDto>(req.downloadHandler.text);
-                        if (dto != null)
-                        {
-                            string tone = DirectorPolicy.IsValidTone(dto.tone) ? dto.tone : Tone.Neutral;
-                            if (!elite && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예만
-                            string line = string.IsNullOrWhiteSpace(dto.line) || DirectorPolicy.MentionsSpace(dto.line)
-                                ? persona.Fallback(tone) : dto.line.Trim();
-                            cm = new ForkComment { line = line, tone = tone };
-                        }
+                        string tone = DirectorPolicy.IsValidTone(dto.tone) ? dto.tone : Tone.Neutral;
+                        if (!elite && tone == Tone.Taunt) tone = DirectorPolicy.NonTauntTone(profile); // 도발은 정예만
+                        string line = string.IsNullOrWhiteSpace(dto.line) || DirectorPolicy.MentionsSpace(dto.line)
+                            ? persona.Fallback(tone) : dto.line.Trim();
+                        cm = new ForkComment { line = line, tone = tone };
                     }
-                    catch (Exception e) { Debug.LogWarning($"[AIDirector] 진입 대사 파싱 예외: {e.Message}"); }
                 }
-                else Debug.LogWarning($"[AIDirector] 진입 대사 실패({req.result}) → 폴백. {req.error}");
-
-                if (cm == null)
-                {
-                    string tone = elite ? Tone.Taunt : (profile.avgHpPct <= 0.35f ? Tone.Concern : Tone.Neutral);
-                    cm = new ForkComment { tone = tone, line = persona.Fallback(tone) };
-                }
-                onResult?.Invoke(cm);
+                catch (Exception e) { Debug.LogWarning($"[AIDirector] 진입 대사 파싱 예외: {e.Message}"); }
             }
+
+            if (cm == null)
+            {
+                string tone = elite ? Tone.Taunt : (profile.avgHpPct <= 0.35f ? Tone.Concern : Tone.Neutral);
+                cm = new ForkComment { tone = tone, line = persona.Fallback(tone) };
+            }
+            onResult?.Invoke(cm);
         }
 
         [Serializable] private class ForkCommentDto { public string line, tone; }
