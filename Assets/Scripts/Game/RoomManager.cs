@@ -226,6 +226,7 @@ namespace AIDungeon.Game
         {
             int nextFloor = _floor + 1;
             _eliteRoom = eliteRoom;
+            if (tone == Tone.Impressed) tone = Tone.Neutral; // 감탄은 갈림길 평가 전용 — 전투 진입엔 절대 금지
             _arch = new ForkArchetype { id = archId, combat = true, diffMul = diffMul, countMul = countMul, treasure = treasure };
 
             float diff = DirectorPolicy.FloorScaledDifficulty(profile, nextFloor, diffMul); // 층 오를수록 ↑
