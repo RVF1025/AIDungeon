@@ -23,12 +23,14 @@ namespace AIDungeon.Game
     }
 
     /// <summary>
-    /// 갈림길 선택 UI. 카드 2~3개를 띄우고 숫자 키로 고른다. 코드 생성(EventSystem 불필요).
+    /// 갈림길 선택 UI. 카드 2~3개를 띄우고 숫자 키 또는 마우스 좌클릭으로 고른다.
+    /// 코드 생성(EventSystem 불필요 — 클릭은 RectTransform 히트테스트로 직접 판정).
     /// Choose를 코루틴으로 돌리면 선택될 때까지 대기 후 onChosen(index) 호출.
     /// </summary>
     public class PathSelectUI : MonoBehaviour
     {
         private int _chosen;
+        private readonly List<RectTransform> _cardRects = new();
 
         public IEnumerator Choose(List<PathOption> options, string personaName, string comment,
                                   Sprite portrait, Action<int> onChosen)
@@ -44,6 +46,21 @@ namespace AIDungeon.Game
                     if (kb.digit1Key.wasPressedThisFrame && options.Count >= 1) _chosen = 0;
                     else if (kb.digit2Key.wasPressedThisFrame && options.Count >= 2) _chosen = 1;
                     else if (kb.digit3Key.wasPressedThisFrame && options.Count >= 3) _chosen = 2;
+                }
+
+                var mouse = Mouse.current;
+                if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                {
+                    Vector2 mp = mouse.position.ReadValue();
+                    for (int i = 0; i < _cardRects.Count; i++)
+                    {
+                        // ScreenSpaceOverlay 캔버스라 카메라 인자는 null.
+                        if (RectTransformUtility.RectangleContainsScreenPoint(_cardRects[i], mp, null))
+                        {
+                            _chosen = i;
+                            break;
+                        }
+                    }
                 }
                 yield return null;
             }
@@ -87,13 +104,14 @@ namespace AIDungeon.Game
                 42f, new Vector2(textX, -8), textW);
             line.alignment = TextAlignmentOptions.Left;
 
-            ScreenUi.Label(canvas.transform, "숫자 키로 갈림길을 선택하시오", 26f, new Vector2(0, 350));
+            ScreenUi.Label(canvas.transform, "숫자 키 또는 클릭으로 갈림길을 선택하시오", 26f, new Vector2(0, 350));
 
+            _cardRects.Clear();
             int n = options.Count;
             const float spacing = 500f;
             float x0 = -(n - 1) * 0.5f * spacing;
             for (int i = 0; i < n; i++)
-                BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, 90));
+                _cardRects.Add(BuildCard(canvas.transform, options[i], i + 1, new Vector2(x0 + i * spacing, 90)));
 
             return canvas;
         }
@@ -112,7 +130,7 @@ namespace AIDungeon.Game
             return rt;
         }
 
-        private void BuildCard(Transform parent, PathOption opt, int num, Vector2 pos)
+        private RectTransform BuildCard(Transform parent, PathOption opt, int num, Vector2 pos)
         {
             var card = new GameObject($"Card{num}", typeof(RectTransform));
             card.transform.SetParent(parent, false);
@@ -121,11 +139,12 @@ namespace AIDungeon.Game
             rt.anchoredPosition = pos;
             rt.sizeDelta = new Vector2(440, 440);
             var img = card.AddComponent<Image>();
-            img.color = KindColor(opt.kind);
+            img.color = KindColor(opt.kind); // raycastTarget 기본 true → 클릭 히트테스트 대상
 
             ScreenUi.Label(card.transform, $"[{num}]", 46f, new Vector2(0, 150), 400f);
             ScreenUi.Label(card.transform, opt.title, 54f, new Vector2(0, 55), 400f);
             ScreenUi.Label(card.transform, opt.desc, 30f, new Vector2(0, -60), 400f);
+            return rt;
         }
 
         private static Color KindColor(PathKind kind) => kind switch
