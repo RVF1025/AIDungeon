@@ -150,6 +150,8 @@ namespace AIDungeon.Director
             "'직전 전투 요약'을 폭넓게 반영하라: 전투 스타일(근접/원거리 편중이나 균형), 공격성, 체력 소모 중 " +
             "가장 두드러진 점을 골라 언급. 체력만 반복하지 말 것. 한 가지 공격만 치우쳤으면 그 점을 꼬집어도 좋다. " +
             "'???' 선택지가 목록에 있으면 그 정체에 대한 호기심을 자극하는 힌트를 살짝 흘려도 좋다. " +
+            "단, 유저 메시지에 '방금 휴식함'이 명시되면 직전 전투 평가는 생략하고, 몸을 추슬렀는지 가볍게 " +
+            "언급하며 이 갈림길에서 무엇을 고르면 좋을지 조언·추천을 해라. " +
             "방·지형·위치·공간은 일절 언급 금지. line: 공백 포함 40자 이내 한 문장. " +
             "tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만.";
 
@@ -163,13 +165,13 @@ namespace AIDungeon.Director
         /// 제시된 갈림길 선택지들을 AI가 한 문장으로 평가. 실패 시 성향 로컬 대사로 폴백(게임 안 멈춤).
         /// </summary>
         public IEnumerator RequestForkComment(PlayerProfile profile, DirectorPersona persona,
-                                              List<ForkArchetype> options, Action<ForkComment> onResult)
+                                              List<ForkArchetype> options, bool afterRest, Action<ForkComment> onResult)
         {
             string url = proxyUrl;
             if (!string.IsNullOrEmpty(modelOverride))
                 url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
 
-            byte[] payload = Encoding.UTF8.GetBytes(BuildForkRequestBody(profile, persona.voice, options));
+            byte[] payload = Encoding.UTF8.GetBytes(BuildForkRequestBody(profile, persona.voice, options, afterRest));
 
             using (var req = new UnityWebRequest(url, "POST"))
             {
@@ -276,7 +278,7 @@ namespace AIDungeon.Director
             return $"스타일={style}, {hp}, 성향={aggr}";
         }
 
-        private string BuildForkRequestBody(PlayerProfile p, string voice, List<ForkArchetype> options)
+        private string BuildForkRequestBody(PlayerProfile p, string voice, List<ForkArchetype> options, bool afterRest)
         {
             var titles = new StringBuilder();
             for (int i = 0; i < options.Count; i++)
@@ -284,8 +286,10 @@ namespace AIDungeon.Director
                 if (i > 0) titles.Append(", ");
                 titles.Append(options[i].title);
             }
-            string userText =
-                $"{p.ToPromptLine()} | 직전 전투 요약: {CombatSummary(p)} | 제시된 갈림길: {titles} | 이 갈림길을 평가하라.";
+            string context = afterRest
+                ? "방금 휴식함(체력 회복). 전투 평가 대신 회복 여부와 다음 선택 조언"
+                : $"직전 전투 요약: {CombatSummary(p)}";
+            string userText = $"{p.ToPromptLine()} | {context} | 제시된 갈림길: {titles} | 이 갈림길을 평가하라.";
 
             var sb = new StringBuilder(1024);
             sb.Append("{\"systemInstruction\":{\"parts\":[{\"text\":");
