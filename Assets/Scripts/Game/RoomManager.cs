@@ -93,14 +93,14 @@ namespace AIDungeon.Game
         // 전투형(일반/정예/???)이면 다음 층 전투를 구성하고 반환.
         private IEnumerator ForkSequence(PlayerProfile profile)
         {
-            bool afterRest = false; // 직전 노드가 휴식이면 평가 대신 회복·조언
+            string recentEvent = null; // 직전 노드가 휴식/보물이면 그 사건에 반응(전투 재평가 방지)
             while (true)
             {
                 var cands = ForkArchetypes.Select(_persona.id, profile.avgHpPct, _lastArchId);
 
                 // AI가 이 갈림길을 평가(대기 필요 → 로딩 화면).
                 ForkComment comment = null; bool ready = false;
-                StartCoroutine(_client.RequestForkComment(profile, _persona, cands, afterRest, c => { comment = c; ready = true; }));
+                StartCoroutine(_client.RequestForkComment(profile, _persona, cands, recentEvent, c => { comment = c; ready = true; }));
                 _phase = "AI Director가 갈림길을 살피는 중...";
                 if (_loading == null) _loading = new GameObject("Loading").AddComponent<LoadingScreen>();
                 float t0 = Time.time;
@@ -126,7 +126,7 @@ namespace AIDungeon.Game
                     int after = Mathf.CeilToInt(_playerHealth.CurrentHp);
                     yield return ShowRestMessage(before, after);
                     profile = _logger.BuildProfile(); // 회복 반영
-                    afterRest = true; // 다음 갈림길 평가는 회복·조언 모드
+                    recentEvent = "방금 휴식 공간에서 체력을 회복했다"; // 다음 갈림길은 이 사건에 반응
                     continue;
                 }
 
@@ -139,6 +139,7 @@ namespace AIDungeon.Game
                     {
                         if (m.treasure) yield return OpenTreasure();
                         profile = _logger.BuildProfile();
+                        recentEvent = "방금 ??? 방에서 뜻밖의 보물을 얻었다"; // 다음 갈림길은 이 사건에 반응
                         continue;
                     }
 

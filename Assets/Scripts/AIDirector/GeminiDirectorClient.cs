@@ -150,8 +150,8 @@ namespace AIDungeon.Director
             "'직전 전투 요약'을 폭넓게 반영하라: 전투 스타일(근접/원거리 편중이나 균형), 공격성, 체력 소모 중 " +
             "가장 두드러진 점을 골라 언급. 체력만 반복하지 말 것. 한 가지 공격만 치우쳤으면 그 점을 꼬집어도 좋다. " +
             "'???' 선택지가 목록에 있으면 그 정체에 대한 호기심을 자극하는 힌트를 살짝 흘려도 좋다. " +
-            "단, 유저 메시지에 '방금 휴식함'이 명시되면 직전 전투 평가는 생략하고, 몸을 추슬렀는지 가볍게 " +
-            "언급하며 이 갈림길에서 무엇을 고르면 좋을지 조언·추천을 해라. " +
+            "단, 유저 메시지에 '최근 사건'이 명시되면 직전 전투 평가는 생략하고, 그 사건에 반응하며 " +
+            "이 갈림길에서 무엇을 고르면 좋을지 조언·추천을 해라. " +
             "방·지형·위치·공간은 일절 언급 금지. line: 공백 포함 40자 이내 한 문장. " +
             "tone: taunt/impressed/concern/neutral 중 하나. 특수문자·이모지·말줄임표(…) 금지, 한글과 기본 문장부호만.";
 
@@ -165,13 +165,13 @@ namespace AIDungeon.Director
         /// 제시된 갈림길 선택지들을 AI가 한 문장으로 평가. 실패 시 성향 로컬 대사로 폴백(게임 안 멈춤).
         /// </summary>
         public IEnumerator RequestForkComment(PlayerProfile profile, DirectorPersona persona,
-                                              List<ForkArchetype> options, bool afterRest, Action<ForkComment> onResult)
+                                              List<ForkArchetype> options, string recentEvent, Action<ForkComment> onResult)
         {
             string url = proxyUrl;
             if (!string.IsNullOrEmpty(modelOverride))
                 url += (url.Contains("?") ? "&" : "?") + "model=" + UnityWebRequest.EscapeURL(modelOverride);
 
-            byte[] payload = Encoding.UTF8.GetBytes(BuildForkRequestBody(profile, persona.voice, options, afterRest));
+            byte[] payload = Encoding.UTF8.GetBytes(BuildForkRequestBody(profile, persona.voice, options, recentEvent));
 
             using (var req = new UnityWebRequest(url, "POST"))
             {
@@ -264,21 +264,22 @@ namespace AIDungeon.Director
         // 수치를 사람이 읽을 서술로 변환(모델이 다양한 각도로 논평하도록). meleeRatio 1=근접만/0=원거리만.
         private static string CombatSummary(PlayerProfile p)
         {
-            string style =
-                p.meleeRatio >= 0.75f ? "근접에 극단적으로 치우침" :
-                p.meleeRatio >= 0.58f ? "근접 위주" :
-                p.meleeRatio <= 0.25f ? "원거리에 극단적으로 치우침" :
-                p.meleeRatio <= 0.42f ? "원거리 위주" : "근접·원거리 균형";
             string hp =
                 p.avgHpPct <= 0.4f ? "체력을 크게 소모함(위태로움)" :
                 p.avgHpPct <= 0.7f ? "체력을 제법 소모함" : "체력에 여유가 있음";
             string aggr =
                 p.aggression >= 0.65f ? "매우 저돌적" :
                 p.aggression <= 0.35f ? "신중하게 거리 유지" : "공격성 보통";
-            return $"스타일={style}, {hp}, 성향={aggr}";
+            // 근접/원거리가 균형이면 스타일은 언급 가치가 낮으니 생략(체력·성향에 집중).
+            string style =
+                p.meleeRatio >= 0.75f ? "근접에 극단적으로 치우침" :
+                p.meleeRatio >= 0.58f ? "근접 위주" :
+                p.meleeRatio <= 0.25f ? "원거리에 극단적으로 치우침" :
+                p.meleeRatio <= 0.42f ? "원거리 위주" : null;
+            return style == null ? $"{hp}, 성향={aggr}" : $"스타일={style}, {hp}, 성향={aggr}";
         }
 
-        private string BuildForkRequestBody(PlayerProfile p, string voice, List<ForkArchetype> options, bool afterRest)
+        private string BuildForkRequestBody(PlayerProfile p, string voice, List<ForkArchetype> options, string recentEvent)
         {
             var titles = new StringBuilder();
             for (int i = 0; i < options.Count; i++)
@@ -286,9 +287,9 @@ namespace AIDungeon.Director
                 if (i > 0) titles.Append(", ");
                 titles.Append(options[i].title);
             }
-            string context = afterRest
-                ? "방금 휴식함(체력 회복). 전투 평가 대신 회복 여부와 다음 선택 조언"
-                : $"직전 전투 요약: {CombatSummary(p)}";
+            string context = string.IsNullOrEmpty(recentEvent)
+                ? $"직전 전투 요약: {CombatSummary(p)}"
+                : $"최근 사건: {recentEvent}";
             string userText = $"{p.ToPromptLine()} | {context} | 제시된 갈림길: {titles} | 이 갈림길을 평가하라.";
 
             var sb = new StringBuilder(1024);
