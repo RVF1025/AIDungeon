@@ -1,7 +1,7 @@
 # 게임 소개 및 설명 — AIDungeon
 
 > NHN Game x AI 해커톤 예선 제출용 · 게임 소개 및 설명
-> 팀/작성자: [여기에 팀명·이름 기입]
+> 작성자: 김민우
 
 ---
 
@@ -68,13 +68,13 @@
 
 아래 링크를 클릭하면 설치 없이 브라우저에서 바로 실행된다.
 
-- 플레이 링크(웹): [GitHub Pages URL]
+- 플레이 링크(웹): https://rvf1025.github.io/AIDungeon/
 
 권장 환경: 최신 데스크톱 브라우저(Chrome 권장), 키보드와 마우스. 첫 로딩 시 잠시 기다리면 된다.
 
 ### 소스 코드
 
-- 저장소(GitHub): [GitHub URL]  — 전체 소스 코드와 커밋 기록 포함.
+- 저장소(GitHub): https://github.com/RVF1025/AIDungeon  — 전체 소스 코드와 커밋 기록 포함.
 
 ### 로컬에서 직접 빌드 (선택)
 
@@ -85,6 +85,6 @@
 
 ## 링크 모음
 
-- 플레이(웹): [GitHub Pages URL]
-- 소스 코드(GitHub): [GitHub URL]
-- 플레이 영상(YouTube): [YouTube URL]
+- 플레이(웹): https://rvf1025.github.io/AIDungeon/
+- 소스 코드(GitHub): https://github.com/RVF1025/AIDungeon
+- 플레이 영상(YouTube): https://youtu.be/NKwZPFdqlUY

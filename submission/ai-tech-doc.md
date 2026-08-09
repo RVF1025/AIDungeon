@@ -1,8 +1,8 @@
 # AI 활용 기술 문서 — AIDungeon
 
 > NHN Game x AI 해커톤 예선 제출용 · AI 활용 기술 설명
-> 작성일: 2026-08 · 팀/작성자: [여기에 팀명·이름 기입]
-> 저장소: [GitHub URL] · 플레이(웹): [GitHub Pages URL] · 플레이 영상: [YouTube URL]
+> 작성일: 2026-08 · 작성자: 김민우
+> 저장소: https://github.com/RVF1025/AIDungeon · 플레이(웹): https://rvf1025.github.io/AIDungeon/ · 플레이 영상: https://youtu.be/NKwZPFdqlUY
 
 ---
 
