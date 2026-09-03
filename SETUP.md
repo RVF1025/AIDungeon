@@ -1,6 +1,6 @@
 # AI Dungeon — 셋업 & 진행 현황
 
-NAN 2026 (NHN Game x AI Hackathon) 예선. Unity 6.3 / WebGL / Gemini API.
+개인 프로젝트. Unity 6.3 / WebGL / Gemini API.
 설계 문서는 `Downloads/design-doc.md` 참조.
 
 ---

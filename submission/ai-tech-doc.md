@@ -1,6 +1,6 @@
 # AI 활용 기술 문서 — AIDungeon
 
-> NHN Game x AI 해커톤 예선 제출용 · AI 활용 기술 설명
+> AI 활용 기술 설명
 > 작성일: 2026-08-10
 >
 > 저장소: https://github.com/RVF1025/AIDungeon
